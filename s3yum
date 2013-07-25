@@ -1,0 +1,508 @@
+#!/bin/env python
+# ***** BEGIN LICENSE BLOCK *****
+#
+# For copyright and licensing please refer to LICENSE.
+#
+# ***** END LICENSE BLOCK *****
+#==============================================================================
+#
+# s3yum: Repo creation/maintenance tool for S3-based yum repos
+#
+#==============================================================================
+
+#================
+#==- Imports: -==
+#================
+import os
+import sys
+import time
+import string
+import optparse
+import boto
+import boto.s3
+import tempfile
+import shutil
+import stat
+import re
+import traceback
+import subprocess
+import fnmatch
+
+#==========================
+#==- Exception Classes: -==
+#==========================
+class UserError(Exception):
+    def __init__(self):
+        self.strerror="Unspecified user error."
+
+    def __init__(self,msg):
+        self.strerror=msg
+
+
+class ServiceError(Exception):
+    def __init__(self):
+        self.strerror="Unspecified service error."
+
+    def __init__(self,msg):
+        self.strerror=msg
+
+
+#================
+#==- Globals: -==
+#================
+USAGE="usage: %prog ACTION [OPTIONS] [RPM1] [RPM2] ... [RPM2]"
+DESCRIPTION="Create/maintain s3-based yum repos"
+VERSION="0.1b"
+
+# Action stuff:
+HELP='help'
+LIST='list'
+CREATE='create'
+UPDATE='update'
+GET='get'
+
+ACTIONS_HELP = {
+    HELP: 'provide help for a given action',
+    LIST: 'list repo contents',
+    CREATE: 'create a new yum repo',
+    UPDATE: "update a yum repo by adding or deleting rpm's",
+    GET: "copy the entirety of a given repo to a local directory",
+    }
+
+ACTIONS = (
+    HELP,
+    LIST,
+    CREATE,
+    UPDATE,
+    GET,
+    )
+
+ACTIONS_DESC=string.join(ACTIONS,'|')
+EPILOG="""
+Actions: %s (try %s)
+Environment:
+    CREATEREPO - path to 'createrepo' executable
+    AWS_CREDENTIAL_FILE - path to credential file for AWS auth
+     or
+    AWS_ACCESS_KEY_ID - aws access key
+    AWS_SECRET_ACCESS_KEY - aws secrety key
+"""%(ACTIONS_DESC, HELP)
+
+REPODATA='repodata'
+CREATEREPO=os.environ.get('CREATEREPO','createrepo')
+FOLDER_SUFFIX="_$folder$"
+
+#==================
+#==- Functions: -==
+#==================
+def parse_args( argv ):
+    """
+    Parse input arguments.
+    """
+    class EpilogParser(optparse.OptionParser):
+        def format_epilog(self, formatter):
+                return self.epilog
+
+    parser = EpilogParser(
+        usage=USAGE, version=VERSION,
+        description=DESCRIPTION,
+        epilog=EPILOG )
+
+    parser.add_option(
+        "-v", "--verbose",
+        help='Verbose output',
+        action='store_true', default=False )
+
+    parser.add_option(
+        "-b", "--bucket",
+        help='S3 bucket in which to store/update repo data',
+        type='string', default=None )
+
+    parser.add_option(
+        "-p", "--path",
+        help='Root path of the repo (RPM destination) relative to bucket',
+        type='string', default='dev' )
+
+    parser.add_option(
+        "-o", "--output",
+        help='Where to download the repo for GET action.',
+        type='string', default=None )
+
+    parser.add_option(
+        "-r", "--remove",
+        help="Remove one or more rpm's from the repo (file globs)",
+        type='string', action='append', default=[] )
+
+    (opts,args) = parser.parse_args( argv )
+    opts.parser = parser
+    opts.args = args
+
+    if len(args) > 1:
+        opts.action = args[1].lower()
+    else:
+        opts.action = None
+
+    opts.path = re.sub(r'^\/+','',opts.path)
+    opts.rpms = args[2:]
+    return opts
+
+
+#================
+#==- Utility: -==
+#================
+def s3join(*args):
+    outstr = string.join(args,'/')
+    outstr = re.sub(r'\/+','/',outstr)
+    if outstr.startswith('/'):
+        outstr = outstr[1:]
+    return outstr
+
+def get_print_fn(opts):
+    def verbose(msg, *args):
+        if opts.verbose:
+            print(msg%(args))
+        return
+    return verbose
+
+
+def get_progress_fn(opts,name):
+    def progress_fn(recv,total):
+        if opts.verbose:
+            sys.stdout.write("\r%s: %i/%ib"%(name,recv,total))
+            sys.stdout.flush()
+            
+            if recv >= total:
+                sys.stdout.write('\n')
+                sys.stdout.flush()
+    return progress_fn
+    
+
+def init_tmp(opts):
+    """
+    Do the following setup:
+     - create a tmp dir
+     - create a "repodata" subdir
+    """
+    # Create temp dir:
+    opts.tmp_d = tempfile.mkdtemp()
+    opts.repodir = os.path.join(opts.tmp_d,REPODATA)
+    os.makedirs(opts.repodir)
+    return
+
+
+def copy_rpms(opts):
+    """
+    Copy new RPM's into tmp folder.
+    """
+    for rpm_path in opts.rpms:
+        try:
+            verbose("Copying %s to tmp...", rpm_path)
+            shutil.copy( rpm_path, opts.tmp_d )
+        except IOError, ex:
+            err_msg = 'Error copying "%s": %s (%i)'%(
+                ex.filename, ex.strerror, ex.errno)
+            raise ServiceError(err_msg)
+    return
+
+
+def connect_to_bucket(opts):
+    """
+    Connect to s3 and get the specified bucket, if it exists.
+    """
+    try:
+        # Create connection to S3:
+        conn = boto.connect_s3()
+        bucket = conn.get_bucket(opts.bucket)
+        opts.conn = conn
+        opts.s3_bucket = bucket
+
+    except boto.exception.S3ResponseError, ex:
+        raise ServiceError( "S3 Error: %s"%ex.error_message )
+    return
+
+
+def list_metadata(opts):    
+    """
+    List current metadata and store the values in options.
+    """
+    opts.repodata_path = s3join(opts.path,REPODATA)
+    key_list = opts.s3_bucket.list(prefix=opts.repodata_path)
+
+    opts.old_metadata = []
+    for item in key_list:
+        if item.name.find(FOLDER_SUFFIX) != -1:
+            continue
+
+        opts.old_metadata.append(item)
+
+    return
+
+def list_rpms(opts):
+    """
+    List RPM's at the specified path.
+    """
+    key_list = opts.s3_bucket.list(prefix=opts.path)
+    opts.old_rpms = []
+    for item in key_list:
+        if not item.name.endswith('.rpm'):
+            continue
+        opts.old_rpms.append(item)
+    return
+
+
+def download_items(opts,items,dest_dir):
+    """
+    Download current metadata into the tmp dir.
+    """
+    try:
+        # Iterate over metadata files and store them in our tmp repodata dir:
+        no_items = 0
+        for item in items:
+            # Skip folder keys:
+            if item.name.find(FOLDER_SUFFIX) != -1:
+                verbose("Not downloading: %s",item.name)
+                continue
+
+            filename = os.path.basename(item.name)
+            filepath = os.path.join(dest_dir,filename)
+            f = open(filepath,'w')
+            item.get_file(f, cb=get_progress_fn(
+                opts,"Downloading %s"%item.name))
+            f.close()
+            no_items +=1
+
+        if no_items == 0:
+            err_msg = 'No metadata found with prefix "%s"'%(opts.repodata_path)
+            raise ServiceError(err_msg)
+
+    except IOError, ex:
+        err_msg = "Error opening %s: %s (%i)"%(
+            ex.filename, ex.strerror, ex.errno )
+        raise ServiceError(ex)
+
+    return
+
+
+def create_repodata(opts):
+    """
+    Used to create or update yum repo data.
+    """
+    try:
+        verbose("Generating yum repo metadata")
+
+        args = [CREATEREPO]
+        if opts.action == UPDATE:
+            args.append('--update')
+            for remove_rpm in opts.remove:
+                args.append('--exclude')
+                args.append("'%s'"%(remove_rpm))
+
+        args.append(opts.tmp_d)
+
+        if sys.version_info >= (2,7):
+            output = subprocess.check_output(args)
+            verbose(output)
+        else:
+            subprocess.check_call(args)
+
+    except subprocess.CalledProcessError, ex:
+        err_msg = "'%s' failed with status code %i: %s"%(
+            CREATEREPO, ex.returncode, ex.output)
+        raise ServiceError(err_msg)
+
+    except OSError, ex:
+        err_msg = "Unable to invoke '%s': %s"%(
+            CREATEREPO, ex.strerror)
+        raise ServiceError(err_msg)
+        
+    return
+
+
+def configure_repodata(opts):
+    """
+    Create or update 
+    """
+
+    # On update, download the metadata to the tmp dir:
+    if opts.action == UPDATE:
+        download_items(opts,opts.old_metadata,opts.repodir)
+
+    create_repodata(opts)
+    return
+
+
+def upload_directory(opts,dir_path,upload_prefix):
+    """
+    Upload all the files in a directory to S3.
+    """
+    # Upload RPM's:
+    for file_name in os.listdir(dir_path):
+        file_path = os.path.join(dir_path,file_name)
+        if not os.path.isfile(file_path):
+            continue
+
+        dest_path = s3join(upload_prefix,file_name)
+        item_key = boto.s3.key.Key(opts.s3_bucket)
+        item_key.key = dest_path
+        item_key.set_contents_from_filename(
+            file_path, cb=get_progress_fn(opts,"Uploading: %s"%dest_path))
+    return
+
+
+def upload_repodata(opts):
+    """
+    Upload repodata to the specified bucket.
+    """
+
+    # Upload RPM's:
+    upload_directory(opts,opts.tmp_d,opts.path)
+
+    # Delete old metadata:
+    for item in opts.old_metadata:
+        verbose("Deleting old metadata file: %s", item.name)
+        item.delete()
+
+    # Delete any --remove'd RPM's:
+    for item in opts.old_rpms:
+        for remove_rpm in opts.remove:
+            if fnmatch.fnmatch(item.name,remove_rpm):
+                verbose("Deleting: %s", item.name)
+                item.delete()
+
+    # Upload new metadata:
+    repo_dest = s3join(opts.path,REPODATA)
+    upload_directory(opts,opts.repodir,repo_dest)
+    return
+
+
+def print_lists(opts):
+    """
+    Print repo info and bail.
+    """
+    def list_item(item):
+        print "\t%s - %ib - %s"%(
+            item.name, item.size, item.last_modified)
+    
+    print "Repo info for %s:"%(s3join(opts.bucket,opts.path))
+    for metadata_item in opts.old_metadata:
+        list_item(metadata_item)
+
+    for rpm_item in opts.old_rpms:
+        list_item(rpm_item)
+    return
+
+
+def get_repo(opts):
+    """
+    Download the entire repo to the local disk.
+    """
+    dest_dir = os.path.join(opts.output,REPODATA)
+    if not os.path.exists(dest_dir):
+        try:
+            os.makedirs(dest_dir)
+        except OSError, ex:
+            err_msg = 'Unable to create "%s": %s'%(
+                dest_dir, ex.strerror)
+
+    download_items(opts,opts.old_metadata,dest_dir)
+    download_items(opts,opts.old_rpms,opts.output)
+    return
+
+
+def perform_action(opts):
+    """
+    Perform specific action, as indicated on command line.
+    """
+
+    # Create or update: mktmp, copy rpms, configure, and upload
+    if opts.action in (CREATE,UPDATE):
+        init_tmp(opts)
+        copy_rpms(opts)
+        configure_repodata(opts)
+        upload_repodata(opts)
+
+    # List: just print
+    elif opts.action in (LIST):
+        print_lists(opts)
+
+    # Get: copy to output directory
+    elif opts.action in (GET):
+        get_repo(opts)
+
+    return
+
+
+#=============
+#==- Main: -==
+#=============
+verbose = None
+
+def do_main( argv ):
+    """
+    Main logic.
+    """
+    opts = None
+    try:
+        opts = parse_args( argv )
+
+        global verbose
+        verbose = get_print_fn(opts)
+
+        # Validate args:
+        if not opts.action:
+            raise UserError("Please specify an action")
+
+        if opts.action not in ACTIONS:
+            raise UserError("Bad action: '%s'. Action must be one of: %s"%(
+                str(opts.action), ACTIONS_DESC))
+
+        if opts.action == HELP:
+            print "Valid actions:"
+            for action,usage in ACTIONS_HELP.items():
+                print "\t%s: %s"%(action,usage)
+            sys.exit(0)
+
+        if opts.action in (CREATE,UPDATE) and not opts.rpms and not opts.remove:
+            raise UserError("Please specify at least one RPM to add/remove.")
+
+        if not opts.bucket:
+            raise UserError("Please specify a bucket.")
+
+        if opts.action in (GET) and not opts.output:
+            raise UserError("Please specify an output directory.")
+
+        # Init tmp, copy rpms, get the bucket, create repodata, upload:
+        connect_to_bucket(opts)
+        list_metadata(opts)
+        list_rpms(opts)
+        perform_action(opts)
+
+    except IOError, ex:
+        print("Error: Unable to read from %s: %s (%i)"%(
+            ex.filename, ex.strerror, ex.errno ) )
+
+    except UserError, ex:
+        print( ex.strerror )
+        opts.parser.print_help()
+
+    except ServiceError, ex:
+        print( ex.strerror )
+
+    except Exception:
+        import traceback
+        traceback.print_exc()
+
+    #==============
+    #=- Cleanup: -=
+    #==============
+
+    # Remove tmp dir:
+    if getattr(opts,'tmp_d',None):
+        shutil.rmtree( opts.tmp_d )
+    return
+
+
+if __name__ == '__main__':
+    do_main( sys.argv )
+# EOF
+
