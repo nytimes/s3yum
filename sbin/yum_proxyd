@@ -1,0 +1,3 @@
+#!/bin/bash
+exec node /usr/local/lib/node_modules/yum_proxyd.js
+# EOF
