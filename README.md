@@ -20,7 +20,7 @@ A tool for maintaining private yum repos in s3 allowing access via a smart proxy
 Experimental
 
 ## License
-Copyright 2013 New York Times
+Copyright 2013,2014 New York Times
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
