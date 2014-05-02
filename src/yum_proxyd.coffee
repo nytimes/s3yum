@@ -1,22 +1,10 @@
 # semi-transparent http 1.1 webproxy for AWS instances with roles
-# Version: 1.3b
-# Copyright 2013,2014 The New York Times Company
-# 
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-# 
-#     http://www.apache.org/licenses/LICENSE-2.0
-# 
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# Version: 1.4.1b
 
 http = require 'http'
 url = require 'url'
 qs = require 'querystring'
+
 {createHmac} = require 'crypto'
 
 argv = require('optimist')
@@ -28,6 +16,12 @@ argv = require('optimist')
   .boolean('debug')
   .argv
 
+# Daemonize:
+require('daemon')();
+
+# Pid file:
+npid = require('npid')
+npid.create('/var/run/yum_proxyd.pid')
 
 host_match_regexp = new RegExp(argv.host_match, 'i')
 console.log "http1.1 signing webproxy - signs GET requests for AWS resources using the instance role credentials"
