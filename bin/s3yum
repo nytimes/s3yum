@@ -348,7 +348,8 @@ def configure_repodata(opts):
 
     # On update, download the metadata to the tmp dir:
     if opts.action == UPDATE:
-        download_items(opts,opts.old_metadata,opts.repodir)
+	    get_repo(opts, opts.repodir)
+        #download_items(opts,opts.old_metadata,opts.repodir)
 
     create_repodata(opts)
     return
@@ -420,20 +421,20 @@ def print_lists(opts):
     return
 
 
-def get_repo(opts):
+def get_repo(opts, dest_dir):
     """
     Download the entire repo to the local disk.
     """
-    dest_dir = os.path.join(opts.output,REPODATA)
-    if not os.path.exists(dest_dir):
+    repodata_dir = os.path.join(dest_dir,REPODATA)
+    if not os.path.exists(repodata_dir):
         try:
-            os.makedirs(dest_dir)
+            os.makedirs(repodata_dir)
         except OSError, ex:
             err_msg = 'Unable to create "%s": %s'%(
-                dest_dir, ex.strerror)
+                repodata_dir, ex.strerror)
 
-    download_items(opts,opts.old_metadata,dest_dir)
-    download_items(opts,opts.old_rpms,opts.output)
+    download_items(opts,opts.old_metadata,repodata_dir)
+    download_items(opts,opts.old_rpms,dest_dir)
     return
 
 def confirm_delete(opts):
@@ -499,7 +500,7 @@ def perform_action(opts):
 
     # Get: copy to output directory
     elif opts.action in (GET):
-        get_repo(opts)
+        get_repo(opts, opts.output)
         
     # Destroy the repo!
     elif opts.action == DELETE:
