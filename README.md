@@ -2,24 +2,22 @@
 
 ## Introduction
 A tool for maintaining private yum repos in s3 allowing access via a smart proxy 
+A 3rd-party plugin that makes private S3 repos accessible can be found here: https://github.com/seporaitis/yum-s3-iam
 
 ## Overview
 
  * A developer with AWS credentials places a set of RPMs in a local directory.
  * The developer uses s3yum to maintain a copy of the RPMs in a bucket in S3; corresponding yum metadata is transparently maintained by s3yum.
- * The S3 bucket is private; access is allowed using signed URL's.
+ * The S3 bucket is private; access is allowed using signed URL's/IAM credentials.
  * The developer creates an IAM role and adds a policy allowing access to the S3 bucket.
  * Instances started with that role may use it to sign requests for bucket access.
  * A config file is deployed to /etc/yum/repos.d on the instance which directs yum to the S3 bucket.
- * The config file also specifies a proxy for requests to S3.
- * The yum_proxyd service retrieves the IAM Role metadata for the instance from AWS.
- * When yum_proxyd receives a request from yum it signs the requested URL with temporary credentials from the IAM Role.
  * The download then completes using the URL with temporary access credentials appended in the query string of the URI.
  
 ## Status
 Experimental
 
-## License
+## Licens
 Copyright 2013,2014 New York Times
 
 Licensed under the Apache License, Version 2.0 (the "License");
