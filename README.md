@@ -13,11 +13,40 @@ A 3rd-party plugin that makes private S3 repos accessible can be found here: htt
  * Instances started with that role may use it to sign requests for bucket access.
  * A config file is deployed to /etc/yum/repos.d on the instance which directs yum to the S3 bucket.
  * The download then completes using the URL with temporary access credentials appended in the query string of the URI.
- 
-## Status
-Experimental
 
-## Licens
+## Usage
+The general format of an s3yum command is
+
+    "s3yum ACTION [OPTIONS] [RPM1] [RPM2] ... [RPM2]"
+    
+Where ACTION is one of:
+ * create: create a new yum repo
+ * get: copy the entirety of a given repo to a local directory
+ * list: list repo contents
+ * help: provide help for a given action
+ * update: update a yum repo by adding or deleting rpm's
+
+For detailed usage, try the following:
+ * s3yum --help - display general command line usage
+ * s3yum help - display available commands
+
+### Example 1: Create a new repo from a set of RPM's
+    s3yum CREATE -v \
+        -b my_bucket.amazon.s3.com -p '/my_path' my_pkg1.rpm my_pkg2.rpm
+
+### Example 2: Adding a new RPM to a repo:
+    s3yum UPDATE -v \
+        -b my_bucket.amazon.s3.com -p '/my_path' my_pkg3.rpm
+
+### Example 3: Downloading an entire repo, including repo metadata:
+    s3yum GET -v \
+        -b my_bucket.amazon.s3.com -o my_repo_dir
+ 
+### Example 4: Deleting an entire repo:
+    s3yum DELETE -v \
+        -b my_bucket.amazon.s3.com -p '/my_path/'
+ 
+## License
 Copyright 2013,2014 New York Times
 
 Licensed under the Apache License, Version 2.0 (the "License");
