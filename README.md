@@ -30,6 +30,12 @@ For detailed usage, try the following:
  * s3yum --help - display general command line usage
  * s3yum help - display available commands
 
+### Environment Variables:
+ * **CREATEREPO** - path to 'createrepo' executable
+ * **AWS\_CREDENTIAL\_FILE** - path to credential file for AWS auth
+ * **AWS\_ACCESS\_KEY\_ID** - aws access key
+ * **AWS\_SECRET\_ACCESS\_KEY** - aws secrety key
+
 #### Example 1: Create a new repo from a set of RPM's
     s3yum CREATE -v \
         -b my_bucket.amazon.s3.com -p '/my_path' my_pkg1.rpm my_pkg2.rpm
