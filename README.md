@@ -20,11 +20,11 @@ The general format of an s3yum command is
     s3yum ACTION [OPTIONS] [RPM1] [RPM2] ... [RPM2]
     
 Where ACTION is one of:
- * create: create a new yum repo
- * get: copy the entirety of a given repo to a local directory
- * list: list repo contents
- * help: provide help for a given action
- * update: update a yum repo by adding or deleting rpm's
+ * **create**: create a new yum repo
+ * **get**: copy the entirety of a given repo to a local directory
+ * **list**: list repo contents
+ * **help**: provide help for a given action
+ * **update**: update a yum repo by adding or deleting rpm's
 
 For detailed usage, try the following:
  * s3yum --help - display general command line usage
