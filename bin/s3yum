@@ -309,6 +309,8 @@ def create_repodata(opts):
     """
     try:
         verbose("Generating yum repo metadata")
+        if os.path.exists(opts.repodir):
+        	shutil.rmtree( opts.repodir )
 
         args = [CREATEREPO]
         if opts.action == UPDATE:
@@ -487,19 +489,27 @@ def perform_action(opts):
     Perform specific action, as indicated on command line.
     """
 
-    # Create or update: mktmp, copy rpms, configure, and upload
-    if opts.action in (CREATE,UPDATE):
+    # Create: mktmp, copy rpms, configure, and upload
+    if opts.action == CREATE:
         init_tmp(opts)
         copy_rpms(opts)
         configure_repodata(opts)
         upload_repodata(opts)
 
+    # Update: mktmp, get into tmp, copy rpms, configure, and upload
+    elif opts.action == UPDATE:
+        init_tmp(opts)
+        get_repo(opts, opts.tmp_d)
+        copy_rpms(opts)
+        configure_repodata(opts)
+        upload_repodata(opts)
+
     # List: just print
-    elif opts.action in (LIST):
+    elif opts.action == LIST:
         print_lists(opts)
 
     # Get: copy to output directory
-    elif opts.action in (GET):
+    elif opts.action == GET:
         get_repo(opts, opts.output)
         
     # Destroy the repo!
