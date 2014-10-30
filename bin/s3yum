@@ -60,7 +60,7 @@ class ServiceError(Exception):
 #================
 USAGE="usage: %prog ACTION [OPTIONS] [RPM1] [RPM2] ... [RPM2]"
 DESCRIPTION="Create/maintain s3-based yum repos"
-VERSION="1.2"
+VERSION="1.2.1"
 
 # Action stuff:
 HELP='help'
