@@ -1,4 +1,4 @@
-#!/bin/env python
+#!python
 #==============================================================================
 #
 # s3yum: Repo creation/maintenance tool for S3-based yum repos
@@ -35,7 +35,6 @@ import re
 import traceback
 import subprocess
 import fnmatch
-import glob
 
 #==========================
 #==- Exception Classes: -==
@@ -61,7 +60,7 @@ class ServiceError(Exception):
 #================
 USAGE="usage: %prog ACTION [OPTIONS] [RPM1] [RPM2] ... [RPM2]"
 DESCRIPTION="Create/maintain s3-based yum repos"
-VERSION="1.2.1"
+VERSION="1.2.2"
 
 # Action stuff:
 HELP='help'
@@ -310,15 +309,6 @@ def create_repodata(opts):
             shutil.rmtree( opts.tmp_repodata )
 
         args = [CREATEREPO]
-        if opts.action == UPDATE:
-            args.append('--update-md-path=%s'%opts.tmp_repodata)
-            args.append('--update')
-            for remove_rpm in opts.remove:
-                args.extend(['--exclude'],"'%s'"%(remove_rpm))
-
-        # Add any *rpms* in the temporary directory:
-        #for rpm_file in glob.glob(os.path.join(opts.tmpdir,'*.rpm')):
-        #    args.append(rpm_file)
         args.append(opts.tmpdir)
         cmd_line = ' '.join(args)
         verbose( "Executing: %s", cmd_line )
