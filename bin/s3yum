@@ -140,10 +140,25 @@ def parse_args( argv ):
         type='string', default=None )
 
     parser.add_option(
+        "-w", "--working-dir",
+        help='Download and create repo from this directory instead of tmpdir',
+        dest="workingdir_arg", type="string", default=None)
+
+    parser.add_option(
         "-r", "--remove",
         help="Remove one or more rpm's from the repo (file globs)",
         type='string', action='append', default=[] )
     
+    parser.add_option(
+        "--force-download",
+        help="Force all rpms to download, instead of just the missing ones.",
+        action='store_true', default=False)
+
+    parser.add_option(
+        "--force-upload",
+        help="Force all rpms to upload, instead of just the missing ones.",
+        action='store_true', default=False)
+
     parser.add_option(
         "--dry-run",
         help='Indicate what would happen, without actually modifying the *remote* repo',
@@ -195,16 +210,34 @@ def get_progress_fn(opts,name):
     return progress_fn
     
 
-def init_tmp(opts):
+def init_workingdir(opts):
     """
     Do the following setup:
      - create a tmp dir
      - create a "repodata" subdir
     """
-    # Create temp dir:
-    opts.tmpdir = tempfile.mkdtemp()
-    opts.tmp_repodata = os.path.join(opts.tmpdir,REPODATA)
-    os.makedirs(opts.tmp_repodata)
+    try:
+        # Create temp dir:
+        if opts.workingdir_arg:
+            opts.workingdir = opts.workingdir_arg
+            opts.workingdir_repodata = os.path.join(opts.workingdir,REPODATA)
+            if not os.path.exists(opts.workingdir):
+                verbose( 'Working directory "%s" does not exist. Creating..',
+                    opts.workingdir )
+                os.makedirs(opts.workingdir)
+
+            if not os.path.exists(opts.workingdir_repodata):
+                verbose( 'Working repodata dir "%s" does not exist. Creating..',
+                    opts.workingdir_repodata )
+                os.makedirs(opts.workingdir_repodata)
+        else:
+            opts.workingdir = tempfile.mkdtemp()
+            opts.workingdir_repodata = os.path.join(opts.workingdir,REPODATA)
+            os.makedirs(opts.workingdir_repodata)
+    except OSError, ex:
+        err_msg = 'Unable to initialize working directory: "%s": %s (%i)'%(
+            ex.filename, ex.strerror, ex.errno)
+        raise ServiceError( err_msg )
     return
 
 
@@ -215,7 +248,7 @@ def copy_rpms(opts):
     for rpm_path in opts.rpm_args:
         try:
             verbose("Copying %s to tmp...", rpm_path)
-            shutil.copy( rpm_path, opts.tmpdir )
+            shutil.copy( rpm_path, opts.workingdir )
         except IOError, ex:
             err_msg = 'Error copying "%s": %s (%i)'%(
                 ex.filename, ex.strerror, ex.errno)
@@ -305,11 +338,11 @@ def create_repodata(opts):
     """
     try:
         verbose("Generating yum repo metadata")
-        if os.path.exists(opts.tmp_repodata):
-            shutil.rmtree( opts.tmp_repodata )
+        if os.path.exists(opts.workingdir_repodata):
+            shutil.rmtree( opts.workingdir_repodata )
 
         args = [CREATEREPO]
-        args.append(opts.tmpdir)
+        args.append(opts.workingdir)
         cmd_line = ' '.join(args)
         verbose( "Executing: %s", cmd_line )
 
@@ -359,7 +392,7 @@ def upload_repodata(opts):
     """
 
     # Upload RPM's:
-    upload_directory(opts,opts.tmpdir,opts.path)
+    upload_directory(opts,opts.workingdir,opts.path)
 
     # Delete old metadata:
     for item in opts.s3_repodata_items:
@@ -377,7 +410,7 @@ def upload_repodata(opts):
 
     # Upload new metadata:
     repo_dest = s3join(opts.path,REPODATA)
-    upload_directory(opts,opts.tmp_repodata,repo_dest)
+    upload_directory(opts,opts.workingdir_repodata,repo_dest)
     return
 
 
@@ -466,15 +499,15 @@ def perform_action(opts):
 
     # Create: mktmp, copy rpms, configure, and upload
     if opts.action == CREATE:
-        init_tmp(opts)
+        init_workingdir(opts)
         copy_rpms(opts)
         create_repodata(opts)
         upload_repodata(opts)
 
     # Update: mktmp, get into tmp, copy rpms, configure, and upload
     elif opts.action == UPDATE:
-        init_tmp(opts)
-        get_repo(opts, opts.tmpdir)
+        init_workingdir(opts)
+        get_repo(opts, opts.workingdir)
         copy_rpms(opts)
         create_repodata(opts)
         upload_repodata(opts)
@@ -560,7 +593,7 @@ def do_main( argv ):
 
     # Remove tmp dir:
     if getattr(opts,'tmpdir',None):
-        shutil.rmtree( opts.tmpdir )
+        shutil.rmtree( opts.workingdir )
     return
 
 
