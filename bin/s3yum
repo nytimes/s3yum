@@ -291,15 +291,11 @@ def download_items(opts,items,dest_dir):
             f.close()
             no_items +=1
 
-        if no_items == 0:
-            err_msg = 'No metadata found with prefix "%s"'%(opts.s3_repodata_path)
-            raise ServiceError(err_msg)
-
+        return no_items
     except IOError, ex:
         err_msg = "Error opening %s: %s (%i)"%(
             ex.filename, ex.strerror, ex.errno )
         raise ServiceError(ex)
-
     return
 
 
@@ -314,13 +310,13 @@ def create_repodata(opts):
 
         args = [CREATEREPO]
         if opts.action == UPDATE:
+            args.append('--update-md-path=%s'%opts.tmp_repodata)
             args.append('--update')
-            args.append('--update-md-path=%s'%opts.tmpdir)
             for remove_rpm in opts.remove:
-                args.append('--exclude')
-                args.append("'%s'"%(remove_rpm))
+                args.extend(['--exclude'],"'%s'"%(remove_rpm))
 
-        args.append(opts.tmpdir)
+        # Add any *rpms* in the temporary directory:
+        args.append(os.path.join(opts.tmpdir,'*.rpm'))
         cmd_line = ' '.join(args)
         verbose( "Executing: %s", cmd_line )
 
