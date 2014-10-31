@@ -226,14 +226,9 @@ def init_workingdir(opts):
                     opts.workingdir )
                 os.makedirs(opts.workingdir)
 
-            if not os.path.exists(opts.workingdir_repodata):
-                verbose( 'Working repodata dir "%s" does not exist. Creating..',
-                    opts.workingdir_repodata )
-                os.makedirs(opts.workingdir_repodata)
         else:
             opts.workingdir = tempfile.mkdtemp()
             opts.workingdir_repodata = os.path.join(opts.workingdir,REPODATA)
-            os.makedirs(opts.workingdir_repodata)
     except OSError, ex:
         err_msg = 'Unable to initialize working directory: "%s": %s (%i)'%(
             ex.filename, ex.strerror, ex.errno)
@@ -301,7 +296,7 @@ def list_rpms(opts):
     return
 
 
-def download_items(opts,items,dest_dir):
+def download_items(opts,items,dest_dir,force_download=False):
     """
     Download current metadata into the tmp dir.
     """
@@ -316,12 +311,17 @@ def download_items(opts,items,dest_dir):
 
             filename = os.path.basename(item.name)
             filepath = os.path.join(dest_dir,filename)
-            f = open(filepath,'w')
 
-            item.get_file(f, cb=get_progress_fn(
-                opts,"Downloading %s"%item.name))
+            if not os.path.exists(filepath) or force_download:
+                f = open(filepath,'w')
 
-            f.close()
+                item.get_file(f, cb=get_progress_fn(
+                    opts,"Downloading %s"%item.name))
+
+                f.close()
+            else:
+                verbose('File "%s" already exists in "%s" skipping download',
+                    filename, opts.workingdir)
             no_items +=1
 
         return no_items
@@ -339,7 +339,8 @@ def create_repodata(opts):
     try:
         verbose("Generating yum repo metadata")
         if os.path.exists(opts.workingdir_repodata):
-            shutil.rmtree( opts.workingdir_repodata )
+            verbose('Removing old repodata: "%s"', opts.workingdir_repodata)
+            shutil.rmtree(opts.workingdir_repodata)
 
         args = [CREATEREPO]
         args.append(opts.workingdir)
@@ -443,8 +444,8 @@ def get_repo(opts, dest_dir):
             err_msg = 'Unable to create "%s": %s'%(
                 repodata_dir, ex.strerror)
 
-    download_items(opts,opts.s3_repodata_items,repodata_dir)
-    download_items(opts,opts.s3_rpm_items,dest_dir)
+    download_items(opts,opts.s3_repodata_items,repodata_dir,True)
+    download_items(opts,opts.s3_rpm_items,dest_dir,opts.force_download)
     return
 
 def confirm_delete(opts):
@@ -591,8 +592,8 @@ def do_main( argv ):
     #=- Cleanup: -=
     #==============
 
-    # Remove tmp dir:
-    if getattr(opts,'tmpdir',None):
+    # Remove *temp* working dir, but not user-specified:
+    if getattr(opts,'tmpdir',None) and not opts.workingdir_arg:
         shutil.rmtree( opts.workingdir )
     return
 
