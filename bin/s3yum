@@ -182,6 +182,9 @@ def parse_args( argv ):
 #==- Utility: -==
 #================
 def s3join(*args):
+    """
+    Join two strings to form an s3 path.
+    """
     outstr = string.join(args,'/')
     outstr = re.sub(r'\/+','/',outstr)
     if outstr.startswith('/'):
@@ -189,6 +192,9 @@ def s3join(*args):
     return outstr
 
 def get_print_fn(opts):
+    """
+    Called at init to get a verbose function, based on -v switch.
+    """
     def verbose(msg, *args):
         if opts.dry_run:
             print("(Dry run): " + msg%(args))
@@ -199,6 +205,9 @@ def get_print_fn(opts):
 
 
 def get_progress_fn(opts,name):
+    """
+    Utility function to print upload/download progress.
+    """
     def progress_fn(recv,total):
         if opts.verbose:
             sys.stdout.write("\r%s: %i/%ib"%(name,recv,total))
@@ -212,9 +221,10 @@ def get_progress_fn(opts,name):
 
 def init_workingdir(opts):
     """
-    Do the following setup:
-     - create a tmp dir
-     - create a "repodata" subdir
+    Make sure we have a valid working directory.
+    If the user passed -w, use the input directory.
+    Otherwise, create a temp directory.
+    Attempt to create the dirctory if it doesn't exist, bailing on OSError.
     """
     try:
         # Create temp dir:
@@ -238,7 +248,7 @@ def init_workingdir(opts):
 
 def copy_rpms(opts):
     """
-    Copy new RPM's into tmp folder.
+    Copy input rpm's into the working directory.
     """
     for rpm_path in opts.rpm_args:
         try:
@@ -269,7 +279,7 @@ def connect_to_bucket(opts):
 
 def list_metadata(opts):    
     """
-    List current metadata and store the values in options.
+    List the current repo metadata items in s3, storing in s3_repodata_items.
     """
     opts.s3_repodata_path = s3join(opts.path,REPODATA)
     key_list = opts.s3_bucket.list(prefix=opts.s3_repodata_path)
@@ -285,7 +295,7 @@ def list_metadata(opts):
 
 def list_rpms(opts):
     """
-    List RPM's at the specified path.
+    List the current rpm items in s3, storing in s3_rpm_items.
     """
     key_list = opts.s3_bucket.list(prefix=opts.path)
     opts.s3_rpm_items = []
@@ -298,10 +308,12 @@ def list_rpms(opts):
 
 def download_items(opts,items,dest_dir,force_download=False):
     """
-    Download current metadata into the tmp dir.
+    Download the s3 items given by 'items' into the destination directory
+    given by 'dest_dir'. If force_download is true, download *everything* in 
+    the list. Otherwise, skip downloads for items which are already present
+    in the working directory.
     """
     try:
-        # Iterate over metadata files and store them in our tmp repodata dir:
         no_items = 0
         for item in items:
             # Skip folder keys:
@@ -334,7 +346,7 @@ def download_items(opts,items,dest_dir,force_download=False):
 
 def create_repodata(opts):
     """
-    Used to create or update yum repo data.
+    Invoke 'createrepo' to create the repodata folder to upload.
     """
     try:
         verbose("Generating yum repo metadata")
@@ -368,15 +380,20 @@ def create_repodata(opts):
 
 def upload_directory(opts,dir_path,upload_prefix,check_items=[]):
     """
-    Upload all the files in a directory to S3.
+    Upload all the files in the directory 'dir_path' into the s3 bucket.
+    The variable 'upload_prefix' is the path relative to the s3 bucket.
+    The list item 'check_items' is a list of existing s3 items at this path.
+    If an item to be uploaded is found in check_items, it is skipped.
     """
+
+    # Map S3 item objects to a list of names:
     def item_name(x):
         return os.path.basename(x.name)
-
     item_names = map(item_name,check_items)
 
     # Upload RPM's:
     for file_name in os.listdir(dir_path):
+        # Skip anything that's already uploaded:
         if file_name in item_names:
             verbose(
                 'File "%s" already exists in S3 location "%s" skipping upload',
@@ -402,15 +419,17 @@ def upload_repodata(opts):
     """
     Upload repodata to the specified bucket.
     """
-
-    # Upload RPM's:
+    # In order to reduce efforts, pass the existing list of rpm's in s3 to the
+    # upload function *unless* --force-upload is set, in which case we write
+    # everything.
     if not opts.force_upload:
         rpm_check_items = opts.s3_rpm_items
     else:
         rpm_check_items
-
     upload_directory(opts,opts.workingdir,opts.path, rpm_check_items)
 
+    # ALWAYS delete the existing s3 metadata items and upload the new ones.
+    # We NEVER use check_items here:
     # Delete old metadata:
     for item in opts.s3_repodata_items:
         verbose("Deleting old metadata file: %s", item.name)
@@ -450,7 +469,7 @@ def print_lists(opts):
 
 def get_repo(opts, dest_dir):
     """
-    Download the entire repo to the local disk.
+    Download the entire repo to 'dest_dir' on the local disk.
     """
     repodata_dir = os.path.join(dest_dir,REPODATA)
     if not os.path.exists(repodata_dir):
@@ -513,7 +532,6 @@ def perform_action(opts):
     """
     Perform specific action, as indicated on command line.
     """
-
     # Create: mktmp, copy rpms, configure, and upload
     if opts.action == CREATE:
         init_workingdir(opts)
@@ -540,7 +558,6 @@ def perform_action(opts):
     # Destroy the repo!
     elif opts.action == DELETE:
         delete_repo(opts)
-
     return
 
 
@@ -588,7 +605,6 @@ def do_main( argv ):
         list_metadata(opts)
         list_rpms(opts)
         perform_action(opts)
-
     except IOError, ex:
         print("Error: Unable to read from %s: %s (%i)"%(
             ex.filename, ex.strerror, ex.errno ) )
