@@ -1,4 +1,4 @@
-#!/bin/env python
+#!python
 #==============================================================================
 #
 # s3yum: Repo creation/maintenance tool for S3-based yum repos
@@ -60,7 +60,7 @@ class ServiceError(Exception):
 #================
 USAGE="usage: %prog ACTION [OPTIONS] [RPM1] [RPM2] ... [RPM2]"
 DESCRIPTION="Create/maintain s3-based yum repos"
-VERSION="1.2.1"
+VERSION="1.2.2"
 
 # Action stuff:
 HELP='help'
@@ -159,7 +159,7 @@ def parse_args( argv ):
         opts.action = None
 
     opts.path = re.sub(r'^\/+','',opts.path)
-    opts.rpms = args[2:]
+    opts.rpm_args = args[2:]
     return opts
 
 
@@ -202,9 +202,9 @@ def init_tmp(opts):
      - create a "repodata" subdir
     """
     # Create temp dir:
-    opts.tmp_d = tempfile.mkdtemp()
-    opts.repodir = os.path.join(opts.tmp_d,REPODATA)
-    os.makedirs(opts.repodir)
+    opts.tmpdir = tempfile.mkdtemp()
+    opts.tmp_repodata = os.path.join(opts.tmpdir,REPODATA)
+    os.makedirs(opts.tmp_repodata)
     return
 
 
@@ -212,10 +212,10 @@ def copy_rpms(opts):
     """
     Copy new RPM's into tmp folder.
     """
-    for rpm_path in opts.rpms:
+    for rpm_path in opts.rpm_args:
         try:
             verbose("Copying %s to tmp...", rpm_path)
-            shutil.copy( rpm_path, opts.tmp_d )
+            shutil.copy( rpm_path, opts.tmpdir )
         except IOError, ex:
             err_msg = 'Error copying "%s": %s (%i)'%(
                 ex.filename, ex.strerror, ex.errno)
@@ -231,7 +231,7 @@ def connect_to_bucket(opts):
         # Create connection to S3:
         conn = boto.connect_s3()
         bucket = conn.get_bucket(opts.bucket)
-        opts.conn = conn
+        opts.s3_conn = conn
         opts.s3_bucket = bucket
 
     except boto.exception.S3ResponseError, ex:
@@ -243,15 +243,15 @@ def list_metadata(opts):
     """
     List current metadata and store the values in options.
     """
-    opts.repodata_path = s3join(opts.path,REPODATA)
-    key_list = opts.s3_bucket.list(prefix=opts.repodata_path)
+    opts.s3_repodata_path = s3join(opts.path,REPODATA)
+    key_list = opts.s3_bucket.list(prefix=opts.s3_repodata_path)
 
-    opts.old_metadata = []
+    opts.s3_repodata_items = []
     for item in key_list:
         if item.name.find(FOLDER_SUFFIX) != -1:
             continue
 
-        opts.old_metadata.append(item)
+        opts.s3_repodata_items.append(item)
 
     return
 
@@ -260,11 +260,11 @@ def list_rpms(opts):
     List RPM's at the specified path.
     """
     key_list = opts.s3_bucket.list(prefix=opts.path)
-    opts.old_rpms = []
+    opts.s3_rpm_items = []
     for item in key_list:
         if not item.name.endswith('.rpm'):
             continue
-        opts.old_rpms.append(item)
+        opts.s3_rpm_items.append(item)
     return
 
 
@@ -291,15 +291,11 @@ def download_items(opts,items,dest_dir):
             f.close()
             no_items +=1
 
-        if no_items == 0:
-            err_msg = 'No metadata found with prefix "%s"'%(opts.repodata_path)
-            raise ServiceError(err_msg)
-
+        return no_items
     except IOError, ex:
         err_msg = "Error opening %s: %s (%i)"%(
             ex.filename, ex.strerror, ex.errno )
         raise ServiceError(ex)
-
     return
 
 
@@ -309,18 +305,11 @@ def create_repodata(opts):
     """
     try:
         verbose("Generating yum repo metadata")
-        if os.path.exists(opts.repodir):
-        	shutil.rmtree( opts.repodir )
+        if os.path.exists(opts.tmp_repodata):
+            shutil.rmtree( opts.tmp_repodata )
 
         args = [CREATEREPO]
-        if opts.action == UPDATE:
-            args.append('--update')
-            args.append('--update-md-path=%s'%opts.tmp_d)
-            for remove_rpm in opts.remove:
-                args.append('--exclude')
-                args.append("'%s'"%(remove_rpm))
-
-        args.append(opts.tmp_d)
+        args.append(opts.tmpdir)
         cmd_line = ' '.join(args)
         verbose( "Executing: %s", cmd_line )
 
@@ -340,20 +329,6 @@ def create_repodata(opts):
             CREATEREPO, ex.strerror)
         raise ServiceError(err_msg)
         
-    return
-
-
-def configure_repodata(opts):
-    """
-    Create or update 
-    """
-
-    # On update, download the metadata to the tmp dir:
-    if opts.action == UPDATE:
-	    get_repo(opts, opts.repodir)
-        #download_items(opts,opts.old_metadata,opts.repodir)
-
-    create_repodata(opts)
     return
 
 
@@ -384,16 +359,16 @@ def upload_repodata(opts):
     """
 
     # Upload RPM's:
-    upload_directory(opts,opts.tmp_d,opts.path)
+    upload_directory(opts,opts.tmpdir,opts.path)
 
     # Delete old metadata:
-    for item in opts.old_metadata:
+    for item in opts.s3_repodata_items:
         verbose("Deleting old metadata file: %s", item.name)
         if not opts.dry_run:
             item.delete()
 
     # Delete any --remove'd RPM's:
-    for item in opts.old_rpms:
+    for item in opts.s3_rpm_items:
         for remove_rpm in opts.remove:
             if fnmatch.fnmatch(item.name,remove_rpm):
                 verbose("Deleting: %s", item.name)
@@ -402,7 +377,7 @@ def upload_repodata(opts):
 
     # Upload new metadata:
     repo_dest = s3join(opts.path,REPODATA)
-    upload_directory(opts,opts.repodir,repo_dest)
+    upload_directory(opts,opts.tmp_repodata,repo_dest)
     return
 
 
@@ -415,10 +390,10 @@ def print_lists(opts):
             item.name, item.size, item.last_modified)
     
     print "Repo info for %s:"%(s3join(opts.bucket,opts.path))
-    for metadata_item in opts.old_metadata:
+    for metadata_item in opts.s3_repodata_items:
         list_item(metadata_item)
 
-    for rpm_item in opts.old_rpms:
+    for rpm_item in opts.s3_rpm_items:
         list_item(rpm_item)
     return
 
@@ -435,8 +410,8 @@ def get_repo(opts, dest_dir):
             err_msg = 'Unable to create "%s": %s'%(
                 repodata_dir, ex.strerror)
 
-    download_items(opts,opts.old_metadata,repodata_dir)
-    download_items(opts,opts.old_rpms,dest_dir)
+    download_items(opts,opts.s3_repodata_items,repodata_dir)
+    download_items(opts,opts.s3_rpm_items,dest_dir)
     return
 
 def confirm_delete(opts):
@@ -471,13 +446,13 @@ def delete_repo(opts):
         return False
 
     # Delete old metadata:
-    for item in opts.old_metadata:
+    for item in opts.s3_repodata_items:
         verbose("Deleting old metadata file: %s", item.name)
         if not opts.dry_run:
             item.delete()
 
     # Delete any --remove'd RPM's:
-    for item in opts.old_rpms:
+    for item in opts.s3_rpm_items:
         verbose("Deleting: %s", item.name)
         if not opts.dry_run:
             item.delete()
@@ -493,15 +468,15 @@ def perform_action(opts):
     if opts.action == CREATE:
         init_tmp(opts)
         copy_rpms(opts)
-        configure_repodata(opts)
+        create_repodata(opts)
         upload_repodata(opts)
 
     # Update: mktmp, get into tmp, copy rpms, configure, and upload
     elif opts.action == UPDATE:
         init_tmp(opts)
-        get_repo(opts, opts.tmp_d)
+        get_repo(opts, opts.tmpdir)
         copy_rpms(opts)
-        configure_repodata(opts)
+        create_repodata(opts)
         upload_repodata(opts)
 
     # List: just print
@@ -549,7 +524,7 @@ def do_main( argv ):
                 print "\t%s: %s"%(action,usage)
             sys.exit(0)
 
-        if opts.action in (CREATE,UPDATE) and not opts.rpms and not opts.remove:
+        if opts.action in (CREATE,UPDATE) and not opts.rpm_args and not opts.remove:
             raise UserError("Please specify at least one RPM to add/remove.")
 
         if not opts.bucket:
@@ -584,8 +559,8 @@ def do_main( argv ):
     #==============
 
     # Remove tmp dir:
-    if getattr(opts,'tmp_d',None):
-        shutil.rmtree( opts.tmp_d )
+    if getattr(opts,'tmpdir',None):
+        shutil.rmtree( opts.tmpdir )
     return
 
 
