@@ -35,6 +35,7 @@ import re
 import traceback
 import subprocess
 import fnmatch
+import glob
 
 #==========================
 #==- Exception Classes: -==
@@ -306,7 +307,7 @@ def create_repodata(opts):
     try:
         verbose("Generating yum repo metadata")
         if os.path.exists(opts.tmp_repodata):
-        	shutil.rmtree( opts.tmp_repodata )
+            shutil.rmtree( opts.tmp_repodata )
 
         args = [CREATEREPO]
         if opts.action == UPDATE:
@@ -316,7 +317,9 @@ def create_repodata(opts):
                 args.extend(['--exclude'],"'%s'"%(remove_rpm))
 
         # Add any *rpms* in the temporary directory:
-        args.append(os.path.join(opts.tmpdir,'*.rpm'))
+        #for rpm_file in glob.glob(os.path.join(opts.tmpdir,'*.rpm')):
+        #    args.append(rpm_file)
+        args.append(opts.tmpdir)
         cmd_line = ' '.join(args)
         verbose( "Executing: %s", cmd_line )
 
@@ -336,20 +339,6 @@ def create_repodata(opts):
             CREATEREPO, ex.strerror)
         raise ServiceError(err_msg)
         
-    return
-
-
-def configure_repodata(opts):
-    """
-    Create or update 
-    """
-
-    # On update, download the metadata to the tmp dir:
-    if opts.action == UPDATE:
-	    get_repo(opts, opts.tmp_repodata)
-        #download_items(opts,opts.s3_repodata_items,opts.tmp_repodata)
-
-    create_repodata(opts)
     return
 
 
@@ -489,7 +478,7 @@ def perform_action(opts):
     if opts.action == CREATE:
         init_tmp(opts)
         copy_rpms(opts)
-        configure_repodata(opts)
+        create_repodata(opts)
         upload_repodata(opts)
 
     # Update: mktmp, get into tmp, copy rpms, configure, and upload
@@ -497,7 +486,7 @@ def perform_action(opts):
         init_tmp(opts)
         get_repo(opts, opts.tmpdir)
         copy_rpms(opts)
-        configure_repodata(opts)
+        create_repodata(opts)
         upload_repodata(opts)
 
     # List: just print
