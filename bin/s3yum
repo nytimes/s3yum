@@ -366,12 +366,23 @@ def create_repodata(opts):
     return
 
 
-def upload_directory(opts,dir_path,upload_prefix):
+def upload_directory(opts,dir_path,upload_prefix,check_items=[]):
     """
     Upload all the files in a directory to S3.
     """
+    def item_name(x):
+        return os.path.basename(x.name)
+
+    item_names = map(item_name,check_items)
+
     # Upload RPM's:
     for file_name in os.listdir(dir_path):
+        if file_name in item_names:
+            verbose(
+                'File "%s" already exists in S3 location "%s" skipping upload',
+                file_name, upload_prefix)
+            continue
+
         file_path = os.path.join(dir_path,file_name)
         if not os.path.isfile(file_path):
             continue
@@ -393,7 +404,12 @@ def upload_repodata(opts):
     """
 
     # Upload RPM's:
-    upload_directory(opts,opts.workingdir,opts.path)
+    if not opts.force_upload:
+        rpm_check_items = opts.s3_rpm_items
+    else:
+        rpm_check_items
+
+    upload_directory(opts,opts.workingdir,opts.path, rpm_check_items)
 
     # Delete old metadata:
     for item in opts.s3_repodata_items:
