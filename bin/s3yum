@@ -333,7 +333,7 @@ def download_items(opts,items,dest_dir,force_download=False):
                 f.close()
             else:
                 verbose('File "%s" already exists in "%s" skipping download',
-                    filename, opts.workingdir)
+                    filename, dest_dir)
             no_items +=1
 
         return no_items
