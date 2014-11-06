@@ -60,7 +60,7 @@ class ServiceError(Exception):
 #================
 USAGE="usage: %prog ACTION [OPTIONS] [RPM1] [RPM2] ... [RPM2]"
 DESCRIPTION="Create/maintain s3-based yum repos"
-VERSION="1.3.1"
+VERSION="1.3.2"
 
 # Action stuff:
 HELP='help'
@@ -333,7 +333,7 @@ def download_items(opts,items,dest_dir,force_download=False):
                 f.close()
             else:
                 verbose('File "%s" already exists in "%s" skipping download',
-                    filename, opts.workingdir)
+                    filename, dest_dir)
             no_items +=1
 
         return no_items

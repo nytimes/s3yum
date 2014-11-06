@@ -1,3 +1,8 @@
+v1.3.2 2014/11/06:
+------------------
+
+BUGFIX: fixed error message in download_directory.
+
 v1.3.1 2014/11/06:
 ------------------
 
