@@ -60,7 +60,7 @@ class ServiceError(Exception):
 #================
 USAGE="usage: %prog ACTION [OPTIONS] [RPM1] [RPM2] ... [RPM2]"
 DESCRIPTION="Create/maintain s3-based yum repos"
-VERSION="1.3.0"
+VERSION="1.3.1"
 
 # Action stuff:
 HELP='help'
@@ -389,12 +389,14 @@ def upload_directory(opts,dir_path,upload_prefix,check_items=[]):
     # Map S3 item objects to a list of names:
     def item_name(x):
         return os.path.basename(x.name)
+
     item_names = map(item_name,check_items)
+    rpm_arg_names = map(os.path.basename,opts.rpm_args)
 
     # Upload RPM's:
     for file_name in os.listdir(dir_path):
         # Skip anything that's already uploaded:
-        if file_name in item_names:
+        if (file_name in item_names) and (file_name not in rpm_arg_names):
             verbose(
                 'File "%s" already exists in S3 location "%s" skipping upload',
                 file_name, upload_prefix)
