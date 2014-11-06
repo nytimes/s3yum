@@ -1,5 +1,10 @@
+v1.3.1 2014/11/06:
+------------------
+
+BUGFIX: force upload of input arguments, regardless of --force-upload status.
+
 v1.3.0 2014/10/31:
----------------
+------------------
 
 Added new options:
  * --working-dir: specify a persistent working dir instead of temp
