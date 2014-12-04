@@ -427,7 +427,7 @@ def upload_repodata(opts):
     if not opts.force_upload:
         rpm_check_items = opts.s3_rpm_items
     else:
-        rpm_check_items
+        rpm_check_items = list()
     upload_directory(opts,opts.workingdir,opts.path, rpm_check_items)
 
     # ALWAYS delete the existing s3 metadata items and upload the new ones.
