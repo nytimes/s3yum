@@ -28,6 +28,7 @@ import string
 import optparse
 import boto
 import boto.s3
+import boto.sts
 import tempfile
 import shutil
 import stat
@@ -35,6 +36,7 @@ import re
 import traceback
 import subprocess
 import fnmatch
+import socket
 
 #==========================
 #==- Exception Classes: -==
@@ -164,6 +166,23 @@ def parse_args( argv ):
         help='Indicate what would happen, without actually modifying the *remote* repo',
         action='store_true', default=False )
 
+    parser.add_option(
+        '--assume-role',
+        help='Indicate that s3yum should assume the role given in the arn',
+        type='string', action='store', default=None)
+
+    default_session_name = "s3yum:{0}@{1}:{2}".format(
+        os.getlogin(), socket.gethostname(), time.time())
+    parser.add_option(
+        '--role-session-name',
+        help='Optional session name for --assume-role',
+        type='string', action='store', default=default_session_name)
+
+    parser.add_option(
+        '--role-external-id',
+        help='Optional external id for --assume-role',
+        type='string', action='store', default=None)
+
     (opts,args) = parser.parse_args( argv )
     opts.parser = parser
     opts.args = args
@@ -266,12 +285,24 @@ def connect_to_bucket(opts):
     Connect to s3 and get the specified bucket, if it exists.
     """
     try:
-        # Create connection to S3:
-        conn = boto.connect_s3()
+        # If we're assuming a role, attempt to get temporary credentials:
+        if opts.assume_role:
+            sts_conn = boto.sts.STSConnection()
+            assumedRoleObject = sts_connection.assume_role(
+                role_arn=opts.assume_role,
+                role_session_name=opts.role_session_name,
+                external_id=opts.role_external_id)
+            conn = boto.connect_s3(
+                aws_access_key_id=assumedRoleObject.credentials.access_key,
+                aws_secret_access_key=assumedRoleObject.credentials.secret_key,
+                security_token=assumedRoleObject.credentials.session_token)
+        # Otherwise, create an s3 connection using the default creds:
+        else:
+            conn = boto.connect_s3()
+
         bucket = conn.get_bucket(opts.bucket)
         opts.s3_conn = conn
         opts.s3_bucket = bucket
-
     except boto.exception.S3ResponseError, ex:
         raise ServiceError( "S3 Error: %s"%ex.error_message )
     return
