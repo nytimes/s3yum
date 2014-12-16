@@ -1,3 +1,12 @@
+v1.4.0 2014/12/6:
+-----------------
+
+Added *assume role* functionality:
+
+ * --assume-role: to provide role ARN
+ * --role-session-name: to provide an explicit session name (default is s3yum_<timestampe>, otherwise)
+ * --role-external-id: optional external id (if required)
+
 v1.3.1 2014/11/06:
 ------------------
 
