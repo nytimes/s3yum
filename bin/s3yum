@@ -178,8 +178,7 @@ def parse_args(argv):
         help='Indicate that s3yum should assume the role given in the arn',
         type='string', action='store', default=None)
 
-    default_session_name = "s3yum:{0}@{1}:{2}".format(
-        os.getlogin(), socket.gethostname(), time.time())
+    default_session_name = "s3yum_{1}".format(time.time())
     parser.add_option(
         '--role-session-name',
         help='Optional session name for --assume-role',
@@ -296,7 +295,7 @@ def connect_to_bucket(opts):
         # If we're assuming a role, attempt to get temporary credentials:
         if opts.assume_role:
             sts_conn = boto.sts.STSConnection()
-            assumedRoleObject = sts_connection.assume_role(
+            assumedRoleObject = sts_conn.assume_role(
                 role_arn=opts.assume_role,
                 role_session_name=opts.role_session_name,
                 external_id=opts.role_external_id)
