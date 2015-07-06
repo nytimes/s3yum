@@ -1,3 +1,10 @@
+v1.5.0 2015/07/06:
+------------------
+
+Added *--region* parameter:
+ - If absent: connect to the local region in EC2; default region from outside AWS
+ - If present: connect to the specified region
+
 v1.4.0 2014/12/6:
 -----------------
 
