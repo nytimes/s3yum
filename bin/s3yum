@@ -139,6 +139,11 @@ def parse_args(argv):
         type='string', default=None)
 
     parser.add_option(
+        "--region",
+        help='ec2 region to connect to',
+        type='string', default=None)
+
+    parser.add_option(
         "-p", "--path",
         help='Root path of the repo (RPM destination) relative to bucket',
         type='string', default='dev')
@@ -299,13 +304,23 @@ def connect_to_bucket(opts):
                 role_arn=opts.assume_role,
                 role_session_name=opts.role_session_name,
                 external_id=opts.role_external_id)
-            conn = boto.connect_s3(
-                aws_access_key_id=assumedRoleObject.credentials.access_key,
-                aws_secret_access_key=assumedRoleObject.credentials.secret_key,
-                security_token=assumedRoleObject.credentials.session_token)
+            if opts.region:
+                conn = boto.s3.connect_to_region(
+                    region_name=opts.region,
+                    aws_access_key_id=assumedRoleObject.credentials.access_key,
+                    aws_secret_access_key=assumedRoleObject.credentials.secret_key,
+                    security_token=assumedRoleObject.credentials.session_token)
+            else:
+                conn = boto.connect_s3(
+                    aws_access_key_id=assumedRoleObject.credentials.access_key,
+                    aws_secret_access_key=assumedRoleObject.credentials.secret_key,
+                    security_token=assumedRoleObject.credentials.session_token)
         # Otherwise, create an s3 connection using the default creds:
         else:
-            conn = boto.connect_s3()
+            if opts.region:
+                conn = boto.s3.connect_to_region(region_name=opts.region)
+            else:
+                conn = boto.connect_s3()
 
         bucket = conn.get_bucket(opts.bucket)
         opts.s3_conn = conn
