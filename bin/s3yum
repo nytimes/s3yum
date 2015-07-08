@@ -28,6 +28,7 @@ import string
 import optparse
 import boto
 import boto.s3
+import boto.s3.connection
 import boto.sts
 import tempfile
 import shutil
