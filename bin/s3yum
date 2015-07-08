@@ -124,7 +124,7 @@ def parse_args(argv):
 
     parser.add_option(
         "-v", "--verbose",
-        help='Verbose output',
+        help='Verbose output - repeat usage increases level',
         action='count', default=0)
 
     parser.add_option(
