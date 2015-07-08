@@ -14,6 +14,11 @@ Added *assume role* functionality:
  * --role-session-name: to provide an explicit session name (default is s3yum_<timestampe>, otherwise)
  * --role-external-id: optional external id (if required)
 
+v1.3.2 2014/11/06:
+------------------
+
+BUGFIX: fixed error message in download_directory.
+
 v1.3.1 2014/11/06:
 ------------------
 

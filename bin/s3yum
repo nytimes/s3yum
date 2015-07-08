@@ -389,7 +389,7 @@ def download_items(opts, items, dest_dir, force_download=False):
                 f.close()
             else:
                 verbose('File "%s" already exists in "%s" skipping download',
-                        filename, opts.workingdir)
+                        filename, dest_dir)
             no_items += 1
 
         return no_items
@@ -483,7 +483,7 @@ def upload_repodata(opts):
     if not opts.force_upload:
         rpm_check_items = opts.s3_rpm_items
     else:
-        rpm_check_items
+        rpm_check_items = list()
     upload_directory(opts, opts.workingdir, opts.path, rpm_check_items)
 
     # ALWAYS delete the existing s3 metadata items and upload the new ones.
