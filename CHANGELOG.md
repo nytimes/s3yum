@@ -1,5 +1,26 @@
+v1.5.0 2015/07/06:
+------------------
+
+Added *--region* parameter:
+ - If absent: connect to the local region in EC2; default region from outside AWS
+ - If present: connect to the specified region
+
+v1.4.0 2014/12/6:
+-----------------
+
+Added *assume role* functionality:
+
+ * --assume-role: to provide role ARN
+ * --role-session-name: to provide an explicit session name (default is s3yum_<timestampe>, otherwise)
+ * --role-external-id: optional external id (if required)
+
+v1.3.1 2014/11/06:
+------------------
+
+BUGFIX: force upload of input arguments, regardless of --force-upload status.
+
 v1.3.0 2014/10/31:
----------------
+------------------
 
 Added new options:
  * --working-dir: specify a persistent working dir instead of temp
