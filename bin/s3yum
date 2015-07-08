@@ -31,12 +31,10 @@ import boto.s3
 import boto.sts
 import tempfile
 import shutil
-import stat
 import re
 import traceback
 import subprocess
 import fnmatch
-import socket
 
 #==========================
 #==- Exception Classes: -==
@@ -45,17 +43,11 @@ import socket
 
 class UserError(Exception):
 
-    def __init__(self):
-        self.strerror = "Unspecified user error."
-
     def __init__(self, msg):
         self.strerror = msg
 
 
 class ServiceError(Exception):
-
-    def __init__(self):
-        self.strerror = "Unspecified service error."
 
     def __init__(self, msg):
         self.strerror = msg
@@ -396,7 +388,7 @@ def download_items(opts, items, dest_dir, force_download=False):
     except IOError, ex:
         err_msg = "Error opening %s: %s (%i)" % (
             ex.filename, ex.strerror, ex.errno)
-        raise ServiceError(ex)
+        raise ServiceError(err_msg)
     return
 
 
@@ -536,6 +528,7 @@ def get_repo(opts, dest_dir):
         except OSError, ex:
             err_msg = 'Unable to create "%s": %s' % (
                 repodata_dir, ex.strerror)
+            raise ServiceError(err_msg)
 
     download_items(opts, opts.s3_repodata_items, repodata_dir, True)
     download_items(opts, opts.s3_rpm_items, dest_dir, opts.force_download)
@@ -677,7 +670,6 @@ def do_main(argv):
         print(ex.strerror)
 
     except Exception:
-        import traceback
         traceback.print_exc()
 
     #==============
