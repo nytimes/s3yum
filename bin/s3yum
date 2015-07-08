@@ -36,6 +36,7 @@ import re
 import traceback
 import subprocess
 import fnmatch
+import logging
 
 #==========================
 #==- Exception Classes: -==
@@ -124,7 +125,7 @@ def parse_args(argv):
     parser.add_option(
         "-v", "--verbose",
         help='Verbose output',
-        action='store_true', default=False)
+        action='count', default=0)
 
     parser.add_option(
         "-b", "--bucket",
@@ -221,10 +222,29 @@ def get_print_fn(opts):
     """
     def verbose(msg, *args):
         if opts.dry_run:
-            print("(Dry run): " + msg % (args))
-        elif opts.verbose:
-            print(msg % (args))
+            msg_prefix = "(Dry run): "
+        else:
+            msg_prefix = ''
+
+        if opts.verbose > 0:
+            out_msg = msg%(args)
+            print >>sys.stderr, msg_prefix + out_msg
         return
+
+    # If extra verbosity was specified, turn on boto logging:
+    if opts.verbose > 1:
+        boto_logger = logging.getLogger('boto')
+        FORMAT = '%(module)s:%(funcName)s (%(levelname)s): %(message)s'
+        logging.basicConfig(format=FORMAT, stream=sys.stderr)
+
+        # For every additional -v option, we increase the log verbosity:
+        addl_verbose = opts.verbose - 2 # -1 for -v
+        lvl_delta = logging.ERROR - logging.WARNING
+        log_level = max(logging.ERROR - (addl_verbose*lvl_delta),logging.DEBUG)
+        boto_logger.setLevel(log_level)
+        verbose("Verbosity: %i; Boto log level: %s",
+            opts.verbose, logging.getLevelName(log_level))
+        
     return verbose
 
 
