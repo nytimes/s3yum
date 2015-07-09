@@ -274,13 +274,13 @@ def get_progress_fn(opts, name):
     return progress_fn
 
 
-def get_file_md5( file_path ):
+def get_file_md5( filepath ):
     """
-    Generate an md5 checksum of the file located at "file_path"
+    Generate an md5 checksum of the file located at "filepath"
     """
     BLOCKSIZE = 65536
     hasher = hashlib.md5()
-    with open(file_path, 'r') as afile:
+    with open(filepath, 'r') as afile:
         buf = afile.read(BLOCKSIZE)
         while len(buf) > 0:
             hasher.update(buf)
@@ -288,12 +288,12 @@ def get_file_md5( file_path ):
     return hasher.hexdigest()
 
 
-def md5_matches(file_path, checksum_md5):
+def md5_matches(filepath, checksum_md5):
     """
-    Verify that the md5 checksum of the file located at file_path matches
+    Verify that the md5 checksum of the file located at filepath matches
     the given checksum.
     """
-    local_md5 = get_file_md5(file_path)
+    local_md5 = get_file_md5(filepath)
     return local_md5 == checksum_md5
 
 
@@ -513,24 +513,24 @@ def upload_directory(opts, dir_path, upload_prefix, check_items=[]):
     rpm_arg_names = map(os.path.basename, opts.rpm_args)
 
     # Upload RPM's:
-    for file_name in os.listdir(dir_path):
+    for filename in os.listdir(dir_path):
         # Skip anything that's already uploaded:
-        if (file_name in item_names) and (file_name not in rpm_arg_names):
+        if (filename in item_names) and (filename not in rpm_arg_names):
             verbose(
                 'File "%s" already exists in S3 location "%s" skipping upload',
-                file_name, upload_prefix)
+                filename, upload_prefix)
             continue
 
-        file_path = os.path.join(dir_path, file_name)
-        if not os.path.isfile(file_path):
+        filepath = os.path.join(dir_path, filename)
+        if not os.path.isfile(filepath):
             continue
 
-        dest_path = s3join(upload_prefix, file_name)
+        dest_path = s3join(upload_prefix, filename)
         item_key = boto.s3.key.Key(opts.s3_bucket)
         item_key.key = dest_path
         if not opts.dry_run:
             item_key.set_contents_from_filename(
-                file_path, cb=get_progress_fn(opts, "Uploading: %s" % dest_path))
+                filepath, cb=get_progress_fn(opts, "Uploading: %s" % dest_path))
         else:
             verbose("Uploading: %s" % dest_path)
     return
