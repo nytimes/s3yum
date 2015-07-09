@@ -274,7 +274,7 @@ def get_progress_fn(opts, name):
     return progress_fn
 
 
-def get_file_md5( filepath ):
+def get_file_md5(filepath):
     """
     Generate an md5 checksum of the file located at "filepath"
     """
@@ -438,6 +438,21 @@ def list_rpms(opts):
 #----------------------------------------------
 #                 S3: Download
 #----------------------------------------------
+def should_download(opts, item, filepath, force_download):
+    """
+    Return true if the given item should be downloaded to the given path.
+    We download if:
+     - the file doesn't exist
+     - force_download is True
+     - the md5 of the remote file doesn't match that of the local file
+    """
+    # TODO: Should we actually *not* download if the md5 doesn't match - i.e.
+    # to avoid overwriting a valid local file with an invalid remote one...?
+    return (force_download) \
+        or (not os.path.exists(filepath)) \
+        or (not md5_matches(filepath, item.md5))
+
+
 def download_items(opts, items, dest_dir, force_download=False):
     """
     Download the s3 items given by 'items' into the destination directory
@@ -456,13 +471,18 @@ def download_items(opts, items, dest_dir, force_download=False):
             filename = os.path.basename(item.name)
             filepath = os.path.join(dest_dir, filename)
 
-            if not os.path.exists(filepath) or force_download:
+            if should_download(opts, item, filepath, force_download):
                 f = open(filepath, 'w')
 
                 item.get_file(f, cb=get_progress_fn(
                     opts, "Downloading %s" % item.name))
 
                 f.close()
+
+                if not opts.no_check_md5 and \
+                not md5_matches(filepath,item.md5):
+                    raise ServiceError(
+                        "\nDownload failed: md5 mismatch for %s"%(filename))
             else:
                 verbose('File "%s" already exists in "%s" skipping download',
                         filename, dest_dir)
