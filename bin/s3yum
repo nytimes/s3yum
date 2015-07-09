@@ -37,6 +37,7 @@ import traceback
 import subprocess
 import fnmatch
 import logging
+import hashlib
 
 #--------------------------
 #    Exception Classes:    
@@ -265,6 +266,20 @@ def get_progress_fn(opts, name):
                 sys.stdout.write('\n')
                 sys.stdout.flush()
     return progress_fn
+
+
+def get_file_md5( file_path ):
+    """
+    Generate an md5 checksum of the file located at "file_path"
+    """
+    BLOCKSIZE = 65536
+    hasher = hashlib.md5()
+    with open(file_path, 'r') as afile:
+        buf = afile.read(BLOCKSIZE)
+        while len(buf) > 0:
+            hasher.update(buf)
+            buf = afile.read(BLOCKSIZE)
+    return hasher.hexdigest()
 
 
 #----------------------------------------------
