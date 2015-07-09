@@ -344,7 +344,7 @@ def connect_to_bucket(opts):
         opts.s3_conn = conn
         opts.s3_bucket = bucket
     except boto.exception.BotoServerError, ex:
-        raise ServiceError("STS Error: %s" % ex.error_message)
+        raise ServiceError(str(ex))
     except boto.exception.S3ResponseError, ex:
         raise ServiceError("S3 Error: %s" % ex.error_message)
     return
