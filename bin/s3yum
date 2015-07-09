@@ -176,8 +176,14 @@ def parse_args(argv):
         action='store_true', default=False)
 
     parser.add_option(
+        "--no-check-md5",
+        help="Skip md5 checksum tests for uploads and downloads",
+        action='store_true', default=False)
+
+    parser.add_option(
         "--dry-run",
-        help='Indicate what would happen, without actually modifying the *remote* repo',
+        help='Indicate what would happen, ' + \
+            'without actually modifying the *remote* repo',
         action='store_true', default=False)
 
     parser.add_option(
@@ -280,6 +286,15 @@ def get_file_md5( file_path ):
             hasher.update(buf)
             buf = afile.read(BLOCKSIZE)
     return hasher.hexdigest()
+
+
+def md5_matches(file_path, checksum_md5):
+    """
+    Verify that the md5 checksum of the file located at file_path matches
+    the given checksum.
+    """
+    local_md5 = get_file_md5(file_path)
+    return local_md5 == checksum_md5
 
 
 #----------------------------------------------
