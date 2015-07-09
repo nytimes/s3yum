@@ -18,9 +18,9 @@
 # limitations under the License.
 #==============================================================================
 
-#================
-#==- Imports: -==
-#================
+#----------------
+#    Imports:    
+#----------------
 import os
 import sys
 import time
@@ -38,31 +38,36 @@ import subprocess
 import fnmatch
 import logging
 
-#==========================
-#==- Exception Classes: -==
-#==========================
-
-
+#--------------------------
+#    Exception Classes:    
+#--------------------------
 class UserError(Exception):
+    """
+    Exception type raised to indicate a user error
+    """
 
     def __init__(self, msg):
         self.strerror = msg
 
 
 class ServiceError(Exception):
+    """
+    Exception type raised to indicate that the service has encountered an error
+    """
 
     def __init__(self, msg):
         self.strerror = msg
 
 
-#================
-#==- Globals: -==
-#================
+#----------------
+#    Globals:    
+#----------------
+# Program metadata:
 USAGE = "usage: %prog ACTION [OPTIONS] [RPM1] [RPM2] ... [RPM2]"
 DESCRIPTION = "Create/maintain s3-based yum repos"
 VERSION = "1.5.0"
 
-# Action stuff:
+# s3yum actions:
 HELP = 'help'
 LIST = 'list'
 CREATE = 'create'
@@ -99,15 +104,15 @@ Environment:
     AWS_SECRET_ACCESS_KEY - aws secrety key
 """ % (ACTIONS_DESC, HELP)
 
+# Constants:
 REPODATA = 'repodata'
 CREATEREPO = os.environ.get('CREATEREPO', 'createrepo')
 FOLDER_SUFFIX = "_$folder$"
 
-#==================
-#==- Functions: -==
-#==================
 
-
+#------------------
+#    Functions:    
+#------------------
 def parse_args(argv):
     """
     Parse input arguments.
@@ -202,9 +207,9 @@ def parse_args(argv):
     return opts
 
 
-#================
-#==- Utility: -==
-#================
+#----------------
+#    Utility:    
+#----------------
 def s3join(*args):
     """
     Join two strings to form an s3 path.
@@ -634,9 +639,9 @@ def perform_action(opts):
     return
 
 
-#=============
-#==- Main: -==
-#=============
+#-------------
+#    Main:    
+#-------------
 verbose = None
 
 
