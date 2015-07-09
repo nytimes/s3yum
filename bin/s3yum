@@ -59,9 +59,11 @@ class ServiceError(Exception):
         self.strerror = msg
 
 
-#----------------
-#    Globals:    
-#----------------
+#----------------------------------------------
+#                   Globals:    
+#----------------------------------------------
+verbose = None # <-- verbose flag used by get_print_fn
+
 # Program metadata:
 USAGE = "usage: %prog ACTION [OPTIONS] [RPM1] [RPM2] ... [RPM2]"
 DESCRIPTION = "Create/maintain s3-based yum repos"
@@ -110,9 +112,9 @@ CREATEREPO = os.environ.get('CREATEREPO', 'createrepo')
 FOLDER_SUFFIX = "_$folder$"
 
 
-#------------------
-#    Functions:    
-#------------------
+#----------------------------------------------
+#               Utility Functions:
+#----------------------------------------------
 def parse_args(argv):
     """
     Parse input arguments.
@@ -207,9 +209,6 @@ def parse_args(argv):
     return opts
 
 
-#----------------
-#    Utility:    
-#----------------
 def s3join(*args):
     """
     Join two strings to form an s3 path.
@@ -268,6 +267,9 @@ def get_progress_fn(opts, name):
     return progress_fn
 
 
+#----------------------------------------------
+#             Filesystem Functions:
+#----------------------------------------------
 def init_workingdir(opts):
     """
     Make sure we have a valid working directory.
@@ -310,6 +312,9 @@ def copy_rpms(opts):
     return
 
 
+#----------------------------------------------
+#                 S3: Connect
+#----------------------------------------------
 def connect_to_bucket(opts):
     """
     Connect to s3 and get the specified bucket, if it exists.
@@ -350,6 +355,26 @@ def connect_to_bucket(opts):
     return
 
 
+#----------------------------------------------
+#                  S3: List
+#----------------------------------------------
+def print_lists(opts):
+    """
+    Print repo info and bail.
+    """
+    def list_item(item):
+        print "\t%s - %ib - %s" % (
+            item.name, item.size, item.last_modified)
+
+    print "Repo info for %s:" % (s3join(opts.bucket, opts.path))
+    for metadata_item in opts.s3_repodata_items:
+        list_item(metadata_item)
+
+    for rpm_item in opts.s3_rpm_items:
+        list_item(rpm_item)
+    return
+
+
 def list_metadata(opts):
     """
     List the current repo metadata items in s3, storing in s3_repodata_items.
@@ -380,6 +405,9 @@ def list_rpms(opts):
     return
 
 
+#----------------------------------------------
+#                 S3: Download
+#----------------------------------------------
 def download_items(opts, items, dest_dir, force_download=False):
     """
     Download the s3 items given by 'items' into the destination directory
@@ -418,40 +446,27 @@ def download_items(opts, items, dest_dir, force_download=False):
     return
 
 
-def create_repodata(opts):
+def get_repo(opts, dest_dir):
     """
-    Invoke 'createrepo' to create the repodata folder to upload.
+    Download the entire repo to 'dest_dir' on the local disk.
     """
-    try:
-        verbose("Generating yum repo metadata")
-        if os.path.exists(opts.workingdir_repodata):
-            verbose('Removing old repodata: "%s"', opts.workingdir_repodata)
-            shutil.rmtree(opts.workingdir_repodata)
+    repodata_dir = os.path.join(dest_dir, REPODATA)
+    if not os.path.exists(repodata_dir):
+        try:
+            os.makedirs(repodata_dir)
+        except OSError, ex:
+            err_msg = 'Unable to create "%s": %s' % (
+                repodata_dir, ex.strerror)
+            raise ServiceError(err_msg)
 
-        args = [CREATEREPO]
-        args.append(opts.workingdir)
-        cmd_line = ' '.join(args)
-        verbose("Executing: %s", cmd_line)
-
-        if sys.version_info >= (2, 7):
-            output = subprocess.check_output(args)
-            verbose(output)
-        else:
-            subprocess.check_call(args)
-
-    except subprocess.CalledProcessError, ex:
-        err_msg = "'%s' failed with status code %i: %s" % (
-            CREATEREPO, ex.returncode, ex.output)
-        raise ServiceError(err_msg)
-
-    except OSError, ex:
-        err_msg = "Unable to invoke '%s': %s" % (
-            CREATEREPO, ex.strerror)
-        raise ServiceError(err_msg)
-
+    download_items(opts, opts.s3_repodata_items, repodata_dir, True)
+    download_items(opts, opts.s3_rpm_items, dest_dir, opts.force_download)
     return
 
 
+#----------------------------------------------
+#                 S3: Upload
+#----------------------------------------------
 def upload_directory(opts, dir_path, upload_prefix, check_items=[]):
     """
     Upload all the files in the directory 'dir_path' into the s3 bucket.
@@ -526,41 +541,9 @@ def upload_repodata(opts):
     return
 
 
-def print_lists(opts):
-    """
-    Print repo info and bail.
-    """
-    def list_item(item):
-        print "\t%s - %ib - %s" % (
-            item.name, item.size, item.last_modified)
-
-    print "Repo info for %s:" % (s3join(opts.bucket, opts.path))
-    for metadata_item in opts.s3_repodata_items:
-        list_item(metadata_item)
-
-    for rpm_item in opts.s3_rpm_items:
-        list_item(rpm_item)
-    return
-
-
-def get_repo(opts, dest_dir):
-    """
-    Download the entire repo to 'dest_dir' on the local disk.
-    """
-    repodata_dir = os.path.join(dest_dir, REPODATA)
-    if not os.path.exists(repodata_dir):
-        try:
-            os.makedirs(repodata_dir)
-        except OSError, ex:
-            err_msg = 'Unable to create "%s": %s' % (
-                repodata_dir, ex.strerror)
-            raise ServiceError(err_msg)
-
-    download_items(opts, opts.s3_repodata_items, repodata_dir, True)
-    download_items(opts, opts.s3_rpm_items, dest_dir, opts.force_download)
-    return
-
-
+#----------------------------------------------
+#                S3: Delete
+#----------------------------------------------
 def confirm_delete(opts):
     """
     Make sure we really want to do this.
@@ -606,6 +589,46 @@ def delete_repo(opts):
     return True
 
 
+#----------------------------------------------
+#                    yum:
+#----------------------------------------------
+def create_repodata(opts):
+    """
+    Invoke 'createrepo' to create the repodata folder to upload.
+    """
+    try:
+        verbose("Generating yum repo metadata")
+        if os.path.exists(opts.workingdir_repodata):
+            verbose('Removing old repodata: "%s"', opts.workingdir_repodata)
+            shutil.rmtree(opts.workingdir_repodata)
+
+        args = [CREATEREPO]
+        args.append(opts.workingdir)
+        cmd_line = ' '.join(args)
+        verbose("Executing: %s", cmd_line)
+
+        if sys.version_info >= (2, 7):
+            output = subprocess.check_output(args)
+            verbose(output)
+        else:
+            subprocess.check_call(args)
+
+    except subprocess.CalledProcessError, ex:
+        err_msg = "'%s' failed with status code %i: %s" % (
+            CREATEREPO, ex.returncode, ex.output)
+        raise ServiceError(err_msg)
+
+    except OSError, ex:
+        err_msg = "Unable to invoke '%s': %s" % (
+            CREATEREPO, ex.strerror)
+        raise ServiceError(err_msg)
+
+    return
+
+
+#----------------------------------------------
+#                  s3yum:
+#----------------------------------------------
 def perform_action(opts):
     """
     Perform specific action, as indicated on command line.
@@ -638,11 +661,6 @@ def perform_action(opts):
         delete_repo(opts)
     return
 
-
-#-------------
-#    Main:    
-#-------------
-verbose = None
 
 
 def do_main(argv):
