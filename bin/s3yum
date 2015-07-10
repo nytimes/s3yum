@@ -440,7 +440,7 @@ def list_rpms(opts):
 #----------------------------------------------
 def should_download(opts, item, filepath, force_download):
     """
-    Return true if the given item should be downloaded to the given path.
+    Return true if item should be downloaded to filepath, false otherwise.
     We download if:
      - the file doesn't exist
      - force_download is True
@@ -450,7 +450,7 @@ def should_download(opts, item, filepath, force_download):
     # to avoid overwriting a valid local file with an invalid remote one...?
     return (force_download) \
         or (not os.path.exists(filepath)) \
-        or (not md5_matches(filepath, item.md5))
+        or (not opts.no_check_md5 and not md5_matches(filepath, item.md5))
 
 
 def download_items(opts, items, dest_dir, force_download=False):
@@ -525,17 +525,14 @@ def upload_directory(opts, dir_path, upload_prefix, check_items=[]):
     If an item to be uploaded is found in check_items, it is skipped.
     """
 
-    # Map S3 item objects to a list of names:
-    def item_name(x):
-        return os.path.basename(x.name)
-
-    item_names = map(item_name, check_items)
+    items_by_name = dict(zip(map(item_name,check_items),check_items))
     rpm_arg_names = map(os.path.basename, opts.rpm_args)
 
     # Upload RPM's:
     for filename in os.listdir(dir_path):
         # Skip anything that's already uploaded:
-        if (filename in item_names) and (filename not in rpm_arg_names):
+        if (filename in items_by_name.keys()) \
+        and (filename not in rpm_arg_names):
             verbose(
                 'File "%s" already exists in S3 location "%s" skipping upload',
                 filename, upload_prefix)
@@ -646,6 +643,7 @@ def create_repodata(opts):
     """
     Invoke 'createrepo' to create the repodata folder to upload.
     """
+    return
     try:
         verbose("Generating yum repo metadata")
         if os.path.exists(opts.workingdir_repodata):
