@@ -525,11 +525,13 @@ def upload_directory(opts, dir_path, upload_prefix, check_items=[]):
     If an item to be uploaded is found in check_items, it is skipped.
     """
 
-    items_by_name = dict(zip(map(item_name,check_items),check_items))
+    items_by_name = dict(zip(map(lambda x:x.name, check_items), check_items))
     rpm_arg_names = map(os.path.basename, opts.rpm_args)
 
     # Upload RPM's:
     for filename in os.listdir(dir_path):
+        filepath = os.path.join(dir_path, filename)
+
         # Skip anything that's already uploaded:
         if (filename in items_by_name.keys()) \
         and (filename not in rpm_arg_names):
@@ -538,10 +540,11 @@ def upload_directory(opts, dir_path, upload_prefix, check_items=[]):
                 filename, upload_prefix)
             continue
 
-        filepath = os.path.join(dir_path, filename)
+        # If one of the given paths is not an actual file:
         if not os.path.isfile(filepath):
             continue
 
+        # Perform the upload:
         dest_path = s3join(upload_prefix, filename)
         item_key = boto.s3.key.Key(opts.s3_bucket)
         item_key.key = dest_path
