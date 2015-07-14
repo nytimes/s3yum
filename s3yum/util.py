@@ -18,6 +18,12 @@
 # limitations under the License.
 #==============================================================================
 
+
+"""
+@package s3yum.util
+Utility functions for the s3yum repo management tool
+"""
+
 #----------------
 #    Imports:    
 #----------------
