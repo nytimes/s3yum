@@ -714,10 +714,13 @@ def perform_action(opts):
 
 
 
-def do_main(argv):
+def main(argv = None):
     """
     Main logic.
     """
+    if argv is None:
+        argv = sys.argv
+
     opts = None
     try:
         opts = parse_args(argv)
@@ -778,5 +781,5 @@ def do_main(argv):
 
 
 if __name__ == '__main__':
-    do_main(sys.argv)
+    main(sys.argv)
 # EOF
