@@ -10,6 +10,7 @@ import unittest
 import sys
 import io
 import hashlib
+import datetime
 from mock import (
     Mock,
     MagicMock,
@@ -19,7 +20,8 @@ from mock import (
 
 from s3yum.util import (
     s3join,
-    md5_matches
+    md5_matches,
+    s3time_to_datetime,
     )
 
 
@@ -54,6 +56,20 @@ class TestS3YumUtil(unittest.TestCase):
 
         m.assert_called_once_with(filepath, 'r')
         return
+
+    def test_s3_timestamp(self):
+        """
+        Verify that both kinds of s3 timestamps are handled properly
+        """
+        ts1 = 'Wed, 12 Oct 2009 17:50:00 GMT'
+        self.assertEqual(s3time_to_datetime(ts1),
+            datetime.datetime(2009,10,12,17,50))
+
+        ts2 = '2015-07-08T14:50:48.000Z'
+        self.assertEqual(s3time_to_datetime(ts2),
+            datetime.datetime(2015,7,8,14,50,48))
+        return
+
 
 if __name__ == '__main__':
 

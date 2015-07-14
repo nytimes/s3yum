@@ -32,6 +32,7 @@ import string
 import re
 import logging
 import hashlib
+import datetime
 
 #--------------------------
 #    Exception Classes:    
@@ -67,6 +68,7 @@ def s3join(*args):
         outstr = outstr[1:]
     return outstr
 
+
 def get_print_fn(opts):
     """
     Called at init to get a verbose function, based on -v switch.
@@ -98,6 +100,7 @@ def get_print_fn(opts):
         
     return verbose
 
+
 def get_progress_fn(opts, name):
     """
     Utility function to print upload/download progress.
@@ -112,6 +115,7 @@ def get_progress_fn(opts, name):
                 sys.stdout.flush()
     return progress_fn
 
+
 def get_file_md5(filepath):
     """
     Generate an md5 checksum of the file located at "filepath"
@@ -125,6 +129,7 @@ def get_file_md5(filepath):
             buf = afile.read(BLOCKSIZE)
     return hasher.hexdigest()
 
+
 def md5_matches(filepath, checksum_md5):
     """
     Verify that the md5 checksum of the file located at filepath matches
@@ -132,6 +137,36 @@ def md5_matches(filepath, checksum_md5):
     """
     local_md5 = get_file_md5(filepath)
     return local_md5 == checksum_md5
+
+
+def s3time_to_datetime( t_string ):
+    """
+    The Amazon S3 API does not consistently use a single API. Rather, depending
+    on which S3 command is used, AWS will return a string in one of the
+    following *fwo* formats - depending on the action being invoked:
+        '%Y-%m-%dT%H:%M:%S.%fZ'
+                OR
+        '%a, %d %b %Y %H:%M:%S %Z'
+    
+    Given one of these two time formats, this function attempts to convert
+    the string represntation of the datetime, into a standard python datetime
+    object.
+
+    None is returned on failure.
+    """
+    stamp_s3 = None
+    try:
+        stamp_s3 = datetime.datetime.strptime(t_string,
+            '%Y-%m-%dT%H:%M:%S.%fZ')
+    except ValueError:
+        try:
+            stamp_s3 = datetime.datetime.strptime(t_string,
+                '%a, %d %b %Y %H:%M:%S %Z')
+        except ValueError:
+            raise Exception(
+                'Unable to find a matching time format for "%s"'%(t_string))
+    return stamp_s3
+
 
 # EOF
 
