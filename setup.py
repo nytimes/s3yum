@@ -42,7 +42,7 @@ setup(
     packages=["s3yum"],
     entry_points={
         'console_scripts': [
-            's3yum = s3yum.s3yum:main'
+            's3yum = s3yum.s3yum_cli:main'
         ]},
     data_files=[
         ('share/doc/nytimes/s3yum',['README.md']),

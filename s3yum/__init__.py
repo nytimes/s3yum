@@ -12,5 +12,9 @@ try:
 except pkg_resources.DistributionNotFound:
     __version__ = '{0} local source'.format(__name__)
 
+__all__ = [
+    's3yum_cli',
+    'util'
+    ]
 # EOF
 
