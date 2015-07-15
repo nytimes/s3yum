@@ -165,16 +165,6 @@ def parse_args(argv):
         action='store_true', default=False)
 
     parser.add_option(
-        "--no-check-md5",
-        help="Skip md5 checksum tests for uploads and downloads",
-        action='store_true', default=False)
-
-    parser.add_option(
-        "--no-check-mtime",
-        help="Skip mtime tests for uploads and downloads",
-        action='store_true', default=False)
-
-    parser.add_option(
         "--dry-run",
         help='Indicate what would happen, ' + \
             'without actually modifying the *remote* repo',
