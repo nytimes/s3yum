@@ -494,14 +494,7 @@ def upload_repodata(opts):
     """
     Upload repodata to the specified bucket.
     """
-    # In order to reduce efforts, pass the existing list of rpm's in s3 to the
-    # upload function *unless* --force-upload is set, in which case we write
-    # everything.
-    if not opts.force_upload:
-        rpm_check_items = opts.s3_rpm_items
-    else:
-        rpm_check_items = list()
-    upload_directory(opts, opts.workingdir, opts.path, rpm_check_items)
+    upload_directory(opts, opts.workingdir, opts.path, opts.s3_rpm_items)
 
     # ALWAYS delete the existing s3 metadata items and upload the new ones.
     # We NEVER use check_items here:
