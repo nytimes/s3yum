@@ -385,8 +385,7 @@ def download_items(opts, items, dest_dir, force_download=False):
                 f.close()
 
                 # Verify the checksum of the downloaded item:
-                if not opts.no_check_md5 and \
-                not md5_matches(filepath,item.md5):
+                if not md5_matches(filepath,item.md5):
                     raise ServiceError(
                         "\nDownload failed: md5 mismatch for %s"%(filename))
             else:
