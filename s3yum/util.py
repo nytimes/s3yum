@@ -102,12 +102,12 @@ def get_print_fn(opts):
     return verbose
 
 
-def get_progress_fn(opts, name):
+def get_progress_fn(is_verbose, name):
     """
     Utility function to print upload/download progress.
     """
     def progress_fn(recv, total):
-        if opts.verbose:
+        if is_verbose:
             sys.stdout.write("\r%s: %i/%ib" % (name, recv, total))
             sys.stdout.flush()
 
@@ -140,7 +140,7 @@ def md5_matches(filepath, checksum_md5):
     return local_md5 == checksum_md5
 
 
-def mtime_to_datetime(filepath):
+def mtime_as_datetime(filepath):
     """
     Return the modified time of the file given by *filepath* as a datetime.
     """
@@ -148,7 +148,7 @@ def mtime_to_datetime(filepath):
     return datetime.datetime.fromtimestamp(file_mtime)
 
 
-def s3time_to_datetime(t_string):
+def s3time_as_datetime(t_string):
     """
     The Amazon S3 API does not consistently use a single API. Rather, depending
     on which S3 command is used, AWS will return a string in one of the

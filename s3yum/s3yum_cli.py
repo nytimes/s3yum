@@ -44,6 +44,8 @@ from s3yum.util import (
     get_print_fn,
     get_progress_fn,
     md5_matches,
+    mtime_as_datetime,
+    s3time_as_datetime,
     )
 
 
@@ -165,6 +167,11 @@ def parse_args(argv):
     parser.add_option(
         "--no-check-md5",
         help="Skip md5 checksum tests for uploads and downloads",
+        action='store_true', default=False)
+
+    parser.add_option(
+        "--no-check-mtime",
+        help="Skip mtime tests for uploads and downloads",
         action='store_true', default=False)
 
     parser.add_option(
@@ -347,17 +354,19 @@ def list_rpms(opts):
 def should_download(opts, item, filepath, force_download):
     """
     Return true if item should be downloaded to filepath, false otherwise.
-    We download if:
-     - the file doesn't exist
-     - force_download is True
-     - the md5 of the remote file doesn't match that of the local file
-    """
-    # TODO: Should we actually *not* download if the md5 doesn't match - i.e.
-    # to avoid overwriting a valid local file with an invalid remote one...?
-    return (force_download) \
-        or (not os.path.exists(filepath)) \
-        or (not opts.no_check_md5 and not md5_matches(filepath, item.md5))
 
+    We download if any of the following are true:
+     - force_download is True
+     - the file doesn't exist
+     - the checksums differ and the remote file is newer
+    """
+    if force_download or not os.path.exists(filepath):
+        return True
+    
+    local_mtime = mtime_as_datetime(filepath)
+    remote_mtime = s3time_as_datetime(item.last_modified)
+    files_differ = not md5_matches(filepath, item.md5)
+    return files_differ and remote_mtime >= local_mtime
 
 def download_items(opts, items, dest_dir, force_download=False):
     """
@@ -381,10 +390,11 @@ def download_items(opts, items, dest_dir, force_download=False):
                 f = open(filepath, 'w')
 
                 item.get_file(f, cb=get_progress_fn(
-                    opts, "Downloading %s" % item.name))
+                    opts.verbose, "Downloading %s" % item.name))
 
                 f.close()
 
+                # Verify the checksum of the downloaded item:
                 if not opts.no_check_md5 and \
                 not md5_matches(filepath,item.md5):
                     raise ServiceError(
@@ -456,7 +466,8 @@ def upload_directory(opts, dir_path, upload_prefix, check_items=[]):
         item_key.key = dest_path
         if not opts.dry_run:
             item_key.set_contents_from_filename(
-                filepath, cb=get_progress_fn(opts, "Uploading: %s" % dest_path))
+                filepath, cb=get_progress_fn(
+                    opts.verbose, "Uploading: %s" % dest_path))
         else:
             verbose("Uploading: %s" % dest_path)
     return
