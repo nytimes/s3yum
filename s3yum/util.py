@@ -70,34 +70,34 @@ def s3join(*args):
     return outstr
 
 
-def get_print_fn(opts):
+def get_print_fn(is_dryrun, is_verbose):
     """
     Called at init to get a verbose function, based on -v switch.
     """
     def verbose(msg, *args):
-        if opts.dry_run:
+        if is_dryrun:
             msg_prefix = "(Dry run): "
         else:
             msg_prefix = ''
 
-        if opts.verbose > 0:
+        if is_verbose > 0:
             out_msg = msg%(args)
             print >>sys.stderr, msg_prefix + out_msg
         return
 
     # If extra verbosity was specified, turn on boto logging:
-    if opts.verbose > 1:
+    if is_verbose > 1:
         boto_logger = logging.getLogger('boto')
         FORMAT = '%(module)s:%(funcName)s (%(levelname)s): %(message)s'
         logging.basicConfig(format=FORMAT, stream=sys.stderr)
 
         # For every additional -v option, we increase the log verbosity:
-        addl_verbose = opts.verbose - 2 # -1 for -v
+        addl_verbose = is_verbose - 2 # -1 for -v
         lvl_delta = logging.ERROR - logging.WARNING
         log_level = max(logging.ERROR - (addl_verbose*lvl_delta),logging.DEBUG)
         boto_logger.setLevel(log_level)
         verbose("Verbosity: %i; Boto log level: %s",
-            opts.verbose, logging.getLevelName(log_level))
+            is_verbose, logging.getLevelName(log_level))
         
     return verbose
 

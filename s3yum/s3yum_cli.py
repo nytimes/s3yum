@@ -433,6 +433,24 @@ def get_repo(opts, dest_dir):
 #----------------------------------------------
 #                 S3: Upload
 #----------------------------------------------
+def should_upload(opts, filepath, item, force_upload):
+    """
+    Return true if the file at filepath should be uploaded, false otherwise.
+
+    We upload if any of the following are true:
+     - force_upload is True
+     - the remote item doesn't exist
+     - the checksums differ and the local file is newer
+    """
+    if force_upload or not item:
+        return True
+
+    local_mtime = mtime_as_datetime(filepath)
+    remote_mtime = s3time_as_datetime(item.last_modified)
+    files_differ = not md5_matches(filepath, item.md5)
+    return files_differ and local_mtime >= remote_mtime
+
+
 def upload_directory(opts, dir_path, upload_prefix, check_items=[]):
     """
     Upload all the files in the directory 'dir_path' into the s3 bucket.
@@ -442,22 +460,21 @@ def upload_directory(opts, dir_path, upload_prefix, check_items=[]):
     """
 
     items_by_name = dict(zip(map(lambda x:x.name, check_items), check_items))
-    rpm_arg_names = map(os.path.basename, opts.rpm_args)
 
     # Upload RPM's:
     for filename in os.listdir(dir_path):
         filepath = os.path.join(dir_path, filename)
+        remote_item = items_by_name.get(filename,None)
 
-        # Skip anything that's already uploaded:
-        if (filename in items_by_name.keys()) \
-        and (filename not in rpm_arg_names):
+        # Skip any non-file arguments:
+        if not os.path.isfile(filepath):
+            continue
+
+        # Skip anything that doesn't need to be uploaded:
+        if not should_upload(opts, filepath, remote_item, opts.force_upload):
             verbose(
                 'File "%s" already exists in S3 location "%s" skipping upload',
                 filename, upload_prefix)
-            continue
-
-        # If one of the given paths is not an actual file:
-        if not os.path.isfile(filepath):
             continue
 
         # Perform the upload:
@@ -643,7 +660,7 @@ def main(argv = None):
         opts = parse_args(argv)
 
         global verbose
-        verbose = get_print_fn(opts)
+        verbose = get_print_fn(opts.dry_run, opts.verbose)
 
         # Validate args:
         if not opts.action:
