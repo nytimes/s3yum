@@ -56,6 +56,44 @@ class ServiceError(Exception):
         self.strerror = msg
 
 
+#--------------------------
+#     Utility Classes:
+#--------------------------
+class S3YumContext(object):
+    """
+    Simple class used to carry around contextual data for an s3yum invocation
+    """
+    def __init__(self, 
+                 action=None,
+                 args=None,
+                 parser=None,
+                 rpm_args=None,
+                 s3_bucket=None,
+                 s3_conn=None,
+                 s3_repodata_items=None,
+                 s3_repodata_path=None,
+                 s3_rpm_items=None,
+                 workingdir=None,
+                 workingdir_arg=None,
+                 workingdir_repodata=None):
+        """
+        Basic init.
+        """
+        self.action = action
+        self.args = args
+        self.parser = parser
+        self.rpm_args = rpm_args
+        self.s3_bucket = s3_bucket
+        self.s3_conn = s3_conn
+        self.s3_repodata_items = s3_repodata_items
+        self.s3_repodata_path = s3_repodata_path
+        self.s3_rpm_items = s3_rpm_items
+        self.workingdir = workingdir
+        self.workingdir_arg = workingdir_arg
+        self.workingdir_repodata = workingdir_repodata
+        return
+
+
 #----------------------------------------------
 #                Functions:
 #----------------------------------------------
