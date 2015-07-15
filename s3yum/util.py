@@ -27,6 +27,7 @@ Utility functions for the s3yum repo management tool
 #----------------
 #    Imports:    
 #----------------
+import os
 import sys
 import string
 import re
@@ -56,7 +57,7 @@ class ServiceError(Exception):
 
 
 #----------------------------------------------
-#            s3yum Utility Functions:
+#                Functions:
 #----------------------------------------------
 def s3join(*args):
     """
@@ -139,7 +140,15 @@ def md5_matches(filepath, checksum_md5):
     return local_md5 == checksum_md5
 
 
-def s3time_to_datetime( t_string ):
+def mtime_to_datetime(filepath):
+    """
+    Return the modified time of the file given by *filepath* as a datetime.
+    """
+    file_mtime = os.path.getmtime(filepath)
+    return datetime.datetime.fromtimestamp(file_mtime)
+
+
+def s3time_to_datetime(t_string):
     """
     The Amazon S3 API does not consistently use a single API. Rather, depending
     on which S3 command is used, AWS will return a string in one of the
@@ -149,7 +158,7 @@ def s3time_to_datetime( t_string ):
         '%a, %d %b %Y %H:%M:%S %Z'
     
     Given one of these two time formats, this function attempts to convert
-    the string represntation of the datetime, into a standard python datetime
+    the string representation of the datetime, into a standard python datetime
     object.
 
     None is returned on failure.
