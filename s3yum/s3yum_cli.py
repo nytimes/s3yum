@@ -719,7 +719,7 @@ def main(argv=None):
     #==============
 
     # Remove *temp* working dir, but not user-specified:
-    if getattr(context, 'working_dir', None) and not context.opts.working_dir:
+    if context.working_dir is not None and not context.opts.working_dir:
         shutil.rmtree(context.working_dir)
     return
 
