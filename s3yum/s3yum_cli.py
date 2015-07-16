@@ -19,7 +19,7 @@
 #==============================================================================
 
 #----------------
-#    Imports:    
+#    Imports:
 #----------------
 import os
 import sys
@@ -47,13 +47,13 @@ from s3yum.util import (
     mtime_as_datetime,
     s3time_as_datetime,
     S3YumContext
-    )
+)
 
 
 #----------------------------------------------
-#                   Globals:    
+#                   Globals:
 #----------------------------------------------
-verbose = None # <-- verbose flag used by get_print_fn
+verbose = None  # <-- verbose flag used by get_print_fn
 
 # Program metadata:
 USAGE = "usage: %prog ACTION [OPTIONS] [RPM1] [RPM2] ... [RPM2]"
@@ -167,8 +167,8 @@ def parse_args(context, argv):
 
     parser.add_option(
         "--dry-run",
-        help='Indicate what would happen, ' + \
-            'without actually modifying the *remote* repo',
+        help='Indicate what would happen, ' +
+        'without actually modifying the *remote* repo',
         action='store_true', default=False)
 
     parser.add_option(
@@ -216,7 +216,9 @@ def init_workingdir(context):
         # Create temp dir:
         if context.opts.working_dir:
             context.working_dir = context.opts.working_dir
-            context.working_dir_repodata = os.path.join(context.working_dir, REPODATA)
+            context.working_dir_repodata = os.path.join(
+                context.working_dir,
+                REPODATA)
             if not os.path.exists(context.working_dir):
                 verbose('Working directory "%s" does not exist. Creating..',
                         context.working_dir)
@@ -224,8 +226,10 @@ def init_workingdir(context):
 
         else:
             context.working_dir = tempfile.mkdtemp()
-            context.working_dir_repodata = os.path.join(context.working_dir, REPODATA)
-    except OSError, ex:
+            context.working_dir_repodata = os.path.join(
+                context.working_dir,
+                REPODATA)
+    except OSError as ex:
         err_msg = 'Unable to initialize working directory: "%s": %s (%i)' % (
             ex.filename, ex.strerror, ex.errno)
         raise ServiceError(err_msg)
@@ -240,7 +244,7 @@ def copy_rpms(context):
         try:
             verbose("Copying %s to tmp...", rpm_path)
             shutil.copy(rpm_path, context.working_dir)
-        except IOError, ex:
+        except IOError as ex:
             err_msg = 'Error copying "%s": %s (%i)' % (
                 ex.filename, ex.strerror, ex.errno)
             raise ServiceError(err_msg)
@@ -276,16 +280,17 @@ def connect_to_bucket(context):
         # Otherwise, create an s3 connection using the default creds:
         else:
             if context.opts.region:
-                conn = boto.s3.connect_to_region(region_name=context.opts.region)
+                conn = boto.s3.connect_to_region(
+                    region_name=context.opts.region)
             else:
                 conn = boto.connect_s3()
 
         bucket = conn.get_bucket(context.opts.bucket)
         context.s3_conn = conn
         context.s3_bucket = bucket
-    except boto.exception.BotoServerError, ex:
+    except boto.exception.BotoServerError as ex:
         raise ServiceError(str(ex))
-    except boto.exception.S3ResponseError, ex:
+    except boto.exception.S3ResponseError as ex:
         raise ServiceError("S3 Error: %s" % ex.error_message)
     return
 
@@ -354,16 +359,17 @@ def should_download(context, item, filepath, force_download):
     """
     if force_download or not os.path.exists(filepath):
         return True
-    
+
     local_mtime = mtime_as_datetime(filepath)
     remote_mtime = s3time_as_datetime(item.last_modified)
     files_differ = not md5_matches(filepath, item.md5)
     return files_differ and remote_mtime >= local_mtime
 
+
 def download_items(context, items, dest_dir, force_download=False):
     """
     Download the s3 items given by 'items' into the destination directory
-    given by 'dest_dir'. If force_download is true, download *everything* in 
+    given by 'dest_dir'. If force_download is true, download *everything* in
     the list. Otherwise, skip downloads for items which are already present
     in the working directory.
     """
@@ -387,16 +393,16 @@ def download_items(context, items, dest_dir, force_download=False):
                 f.close()
 
                 # Verify the checksum of the downloaded item:
-                if not md5_matches(filepath,item.md5):
+                if not md5_matches(filepath, item.md5):
                     raise ServiceError(
-                        "\nDownload failed: md5 mismatch for %s"%(filename))
+                        "\nDownload failed: md5 mismatch for %s" % (filename))
             else:
                 verbose('File "%s" already exists in "%s" skipping download',
                         filename, dest_dir)
             no_items += 1
 
         return no_items
-    except IOError, ex:
+    except IOError as ex:
         err_msg = "Error opening %s: %s (%i)" % (
             ex.filename, ex.strerror, ex.errno)
         raise ServiceError(err_msg)
@@ -411,13 +417,17 @@ def get_repo(context, dest_dir):
     if not os.path.exists(repodata_dir):
         try:
             os.makedirs(repodata_dir)
-        except OSError, ex:
+        except OSError as ex:
             err_msg = 'Unable to create "%s": %s' % (
                 repodata_dir, ex.strerror)
             raise ServiceError(err_msg)
 
     download_items(context, context.s3_repodata_items, repodata_dir, True)
-    download_items(context, context.s3_rpm_items, dest_dir, context.opts.force_download)
+    download_items(
+        context,
+        context.s3_rpm_items,
+        dest_dir,
+        context.opts.force_download)
     return
 
 
@@ -450,19 +460,20 @@ def upload_directory(context, dir_path, upload_prefix, check_items=[]):
     If an item to be uploaded is found in check_items, it is skipped.
     """
 
-    items_by_name = dict(zip(map(lambda x:x.name, check_items), check_items))
+    items_by_name = dict(zip(map(lambda x: x.name, check_items), check_items))
 
     # Upload RPM's:
     for filename in os.listdir(dir_path):
         filepath = os.path.join(dir_path, filename)
-        remote_item = items_by_name.get(filename,None)
+        remote_item = items_by_name.get(filename, None)
 
         # Skip any non-file arguments:
         if not os.path.isfile(filepath):
             continue
 
         # Skip anything that doesn't need to be uploaded:
-        if not should_upload(context, filepath, remote_item, context.opts.force_upload):
+        if not should_upload(
+                context, filepath, remote_item, context.opts.force_upload):
             verbose(
                 'File "%s" already exists in S3 location "%s" skipping upload',
                 filename, upload_prefix)
@@ -485,7 +496,11 @@ def upload_repodata(context):
     """
     Upload repodata to the specified bucket.
     """
-    upload_directory(context, context.working_dir, context.opts.path, context.s3_rpm_items)
+    upload_directory(
+        context,
+        context.working_dir,
+        context.opts.path,
+        context.s3_rpm_items)
 
     # ALWAYS delete the existing s3 metadata items and upload the new ones.
     # We NEVER use check_items here:
@@ -567,7 +582,9 @@ def create_repodata(context):
     try:
         verbose("Generating yum repo metadata")
         if os.path.exists(context.working_dir_repodata):
-            verbose('Removing old repodata: "%s"', context.working_dir_repodata)
+            verbose(
+                'Removing old repodata: "%s"',
+                context.working_dir_repodata)
             shutil.rmtree(context.working_dir_repodata)
 
         args = [CREATEREPO]
@@ -581,12 +598,12 @@ def create_repodata(context):
         else:
             subprocess.check_call(args)
 
-    except subprocess.CalledProcessError, ex:
+    except subprocess.CalledProcessError as ex:
         err_msg = "'%s' failed with status code %i: %s" % (
             CREATEREPO, ex.returncode, ex.output)
         raise ServiceError(err_msg)
 
-    except OSError, ex:
+    except OSError as ex:
         err_msg = "Unable to invoke '%s': %s" % (
             CREATEREPO, ex.strerror)
         raise ServiceError(err_msg)
@@ -630,8 +647,7 @@ def perform_action(context):
     return
 
 
-
-def main(argv = None):
+def main(argv=None):
     """
     Main logic.
     """
@@ -659,7 +675,8 @@ def main(argv = None):
                 print "\t%s: %s" % (action, usage)
             sys.exit(0)
 
-        if context.action in (CREATE, UPDATE) and not context.rpm_args and not context.opts.remove:
+        if context.action in (
+                CREATE, UPDATE) and not context.rpm_args and not context.opts.remove:
             raise UserError("Please specify at least one RPM to add/remove.")
 
         if not context.opts.bucket:
@@ -673,15 +690,15 @@ def main(argv = None):
         list_metadata(context)
         list_rpms(context)
         perform_action(context)
-    except IOError, ex:
+    except IOError as ex:
         print("Error: Unable to read from %s: %s (%i)" % (
             ex.filename, ex.strerror, ex.errno))
 
-    except UserError, ex:
+    except UserError as ex:
         print(ex.strerror)
         context.parser.print_help()
 
-    except ServiceError, ex:
+    except ServiceError as ex:
         print(ex.strerror)
 
     except Exception:
