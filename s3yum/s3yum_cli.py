@@ -1,4 +1,5 @@
 #!python
+# -*- coding: utf-8 -*-
 #==============================================================================
 #
 # s3yum: Repo creation/maintenance tool for S3-based yum repos
@@ -17,6 +18,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #==============================================================================
+
+
+"""s3yum.s3yum_cli: Command line interface for s3yum.
+
+This module contains the entry point, inteface functions, and business logic
+for the s3yum utility.
+"""
+
 
 #----------------
 #    Imports:
@@ -37,16 +46,18 @@ import traceback
 import subprocess
 import fnmatch
 
-from s3yum.util import (
+from s3yum.s3yum_types import (
     UserError,
     ServiceError,
+    S3YumContext
+)
+from s3yum.util import (
     s3join,
     get_print_fn,
     get_progress_fn,
     md5_matches,
     mtime_as_datetime,
-    s3time_as_datetime,
-    S3YumContext
+    s3time_as_datetime
 )
 
 

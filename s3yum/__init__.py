@@ -14,6 +14,7 @@ except pkg_resources.DistributionNotFound:
 
 __all__ = [
     's3yum_cli',
+    's3yum_types',
     'util'
     ]
 # EOF

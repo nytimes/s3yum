@@ -1,4 +1,5 @@
 #!python
+# -*- coding: utf-8 -*-
 #==============================================================================
 #
 # s3yum: Repo creation/maintenance tool for S3-based yum repos
@@ -18,10 +19,11 @@
 # limitations under the License.
 #==============================================================================
 
+"""s3yum.util: Generic utility functions used by s3yum.
 
-"""
-@package s3yum.util
-Utility functions for the s3yum repo management tool
+This module contains functionality utilized by s3yum in order to perform
+various tasks. The functions are generic - there is no s3yum-specific business
+logic in this module.
 """
 
 #----------------
@@ -34,59 +36,6 @@ import re
 import logging
 import hashlib
 import datetime
-
-#--------------------------
-#    Exception Classes:
-#--------------------------
-
-
-class UserError(Exception):
-
-    """
-    Exception type raised to indicate a user error
-    """
-
-    def __init__(self, msg):
-        self.strerror = msg
-
-
-class ServiceError(Exception):
-
-    """
-    Exception type raised to indicate that the service has encountered an error
-    """
-
-    def __init__(self, msg):
-        self.strerror = msg
-
-
-#--------------------------
-#     Utility Classes:
-#--------------------------
-class S3YumContext(object):
-
-    """
-    Simple class used to carry around contextual data for an s3yum invocation
-    """
-
-    def __init__(self):
-        """
-        Basic init.
-        """
-        self.action = None # Action being performed (e.g. LIST, GET, CREATE)
-        self.args = None # All non-option command line arguments
-        self.opts = None # Command line options
-        self.parser = None # The parser object used to get options
-        self.rpm_args = None # Filename command line arguments
-        self.s3_bucket = None # boto.s3.Bucket object used for session
-        self.s3_conn = None # boto.s3.Connection object used for AWS
-        self.s3_repodata_items = None # List of s3 repodata items
-        self.s3_repodata_path = None # The path within the bucket to repodata
-        self.s3_rpm_items = None # List of s3 rpm items
-        self.working_dir = None # The local working directory
-        self.working_dir_repodata = None # Path to local repodata folder
-        return
-
 
 #----------------------------------------------
 #                Functions:
