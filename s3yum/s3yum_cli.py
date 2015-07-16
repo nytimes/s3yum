@@ -133,7 +133,7 @@ def parse_args(context, argv):
 
     parser.add_option(
         "-v", "--verbose",
-        help='Verbose output - repeat usage increases level',
+        help='Verbose output - repeat usage increases level, adds boto logs',
         action='count', default=0)
 
     parser.add_option(
