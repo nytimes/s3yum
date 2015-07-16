@@ -56,6 +56,7 @@ from s3yum.util import (
     get_print_fn,
     get_progress_fn,
     md5_matches,
+    get_s3item_md5,
     mtime_as_datetime,
     s3time_as_datetime
 )
@@ -395,7 +396,7 @@ def should_download(item, filepath, force_download):
 
     local_mtime = mtime_as_datetime(filepath)
     remote_mtime = s3time_as_datetime(item.last_modified)
-    files_differ = not md5_matches(filepath, item.md5)
+    files_differ = not md5_matches(filepath, get_s3item_md5(item))
     return files_differ and remote_mtime >= local_mtime
 
 
@@ -426,7 +427,7 @@ def download_items(context, items, dest_dir, force_download=False):
                 f.close()
 
                 # Verify the checksum of the downloaded item:
-                if not md5_matches(filepath, item.md5):
+                if not md5_matches(filepath, get_s3item_md5(item)):
                     raise ServiceError(
                         "\nDownload failed: md5 mismatch for %s" % (filename))
             else:
@@ -481,7 +482,7 @@ def should_upload(filepath, item, force_upload):
 
     local_mtime = mtime_as_datetime(filepath)
     remote_mtime = s3time_as_datetime(item.last_modified)
-    files_differ = not md5_matches(filepath, item.md5)
+    files_differ = not md5_matches(filepath, get_s3item_md5(item))
     return files_differ and local_mtime >= remote_mtime
 
 
@@ -493,7 +494,8 @@ def upload_directory(context, dir_path, upload_prefix, check_items=[]):
     If an item to be uploaded is found in check_items, it is skipped.
     """
 
-    items_by_name = dict(zip(map(lambda x: x.name, check_items), check_items))
+    items_by_name = dict(zip(map(
+        lambda x: os.path.basename(x.name), check_items), check_items))
 
     # Upload RPM's:
     for filename in os.listdir(dir_path):

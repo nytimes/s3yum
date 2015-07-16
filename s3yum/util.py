@@ -113,6 +113,17 @@ def get_file_md5(filepath):
     return hasher.hexdigest()
 
 
+def get_s3item_md5(item):
+    """
+    A remote item's md5 may or may not be available, depending on whether or
+    not it was been downloaded. If a download hasn't occurred, the checksum
+    can be fetched using the files HTTP ETag.
+    """
+    if item.md5 is not None:
+        return item.md5
+    else:
+        return item.etag
+
 def md5_matches(filepath, checksum_md5):
     """
     Verify that the md5 checksum of the file located at filepath matches
