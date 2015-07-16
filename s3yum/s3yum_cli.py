@@ -115,7 +115,7 @@ FOLDER_SUFFIX = "_$folder$"
 
 
 #----------------------------------------------
-#               Utility Functions:
+#                 Interface:
 #----------------------------------------------
 def parse_args(context, argv):
     """
@@ -211,6 +211,28 @@ def parse_args(context, argv):
     opts.path = re.sub(r'^\/+', '', opts.path)
     context.rpm_args = args[2:]
     return opts
+
+
+def confirm_delete(context):
+    """
+    Make sure we really want to do this.
+    """
+    print "ALL of yum metadata and RPM's will be deleted from:"
+    print "%s/%s" % (context.opts.bucket, context.opts.path)
+
+    answer = None
+    count = 0
+    while not answer and count < 5:
+        answer = raw_input(
+            "Are you sure you want to delete this repo? (yes/no):")
+        if answer not in ['yes', 'no']:
+            print 'Please type "yes" or "no"'
+            answer = None
+        count += 1
+
+    if answer == 'yes':
+        return True
+    return False
 
 
 #----------------------------------------------
@@ -537,28 +559,6 @@ def upload_repodata(context):
 #----------------------------------------------
 #                S3: Delete
 #----------------------------------------------
-def confirm_delete(context):
-    """
-    Make sure we really want to do this.
-    """
-    print "ALL of yum metadata and RPM's will be deleted from:"
-    print "%s/%s" % (context.opts.bucket, context.opts.path)
-
-    answer = None
-    count = 0
-    while not answer and count < 5:
-        answer = raw_input(
-            "Are you sure you want to delete this repo? (yes/no):")
-        if answer not in ['yes', 'no']:
-            print 'Please type "yes" or "no"'
-            answer = None
-        count += 1
-
-    if answer == 'yes':
-        return True
-    return False
-
-
 def delete_repo(context):
     """
     Delete the repo metadata and all rpm's.
