@@ -17,6 +17,16 @@ with [yum-s3-iam](https://github.com/seporaitis/yum-s3-iam).
  * A config file is deployed to /etc/yum/repos.d on the instance which directs
    yum to the S3 bucket.
 
+## Upload/Download Semantics
+Unless `--force-upload` or `--force-download` is speicifed, s3yum uses the
+following criteria to decide whether or not to upload or download a file:
+ - If the source file does not exist at the destination: transfer
+ - If the source file does exist at the destination, and the checksums of
+   source and destination are different: transfer if the mtime of the source
+   is greater than the mtime of the destination
+ - If the source file exists at the destination and the checksums match:
+   don't transfer the file.
+
 ## Usage
 The general format of an s3yum command is
 `s3yum ACTION [OPTIONS] [RPM1] [RPM2] ... [RPM2]`
