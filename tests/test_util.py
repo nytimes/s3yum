@@ -12,10 +12,8 @@ import io
 import hashlib
 import datetime
 from mock import (
-    Mock,
     MagicMock,
     patch,
-    mock_open
     )
 
 from s3yum.util import (
