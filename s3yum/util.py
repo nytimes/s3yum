@@ -25,7 +25,7 @@ Utility functions for the s3yum repo management tool
 """
 
 #----------------
-#    Imports:    
+#    Imports:
 #----------------
 import os
 import sys
@@ -36,9 +36,12 @@ import hashlib
 import datetime
 
 #--------------------------
-#    Exception Classes:    
+#    Exception Classes:
 #--------------------------
+
+
 class UserError(Exception):
+
     """
     Exception type raised to indicate a user error
     """
@@ -48,6 +51,7 @@ class UserError(Exception):
 
 
 class ServiceError(Exception):
+
     """
     Exception type raised to indicate that the service has encountered an error
     """
@@ -60,10 +64,12 @@ class ServiceError(Exception):
 #     Utility Classes:
 #--------------------------
 class S3YumContext(object):
+
     """
     Simple class used to carry around contextual data for an s3yum invocation
     """
-    def __init__(self): 
+
+    def __init__(self):
         """
         Basic init.
         """
@@ -108,7 +114,7 @@ def get_print_fn(is_dryrun, is_verbose):
             msg_prefix = ''
 
         if is_verbose > 0:
-            out_msg = msg%(args)
+            out_msg = msg % (args)
             print >>sys.stderr, msg_prefix + out_msg
         return
 
@@ -119,13 +125,14 @@ def get_print_fn(is_dryrun, is_verbose):
         logging.basicConfig(format=FORMAT, stream=sys.stderr)
 
         # For every additional -v option, we increase the log verbosity:
-        addl_verbose = is_verbose - 2 # -1 for -v
+        addl_verbose = is_verbose - 2  # -1 for -v
         lvl_delta = logging.ERROR - logging.WARNING
-        log_level = max(logging.ERROR - (addl_verbose*lvl_delta),logging.DEBUG)
+        log_level = max(
+            logging.ERROR - (addl_verbose * lvl_delta), logging.DEBUG)
         boto_logger.setLevel(log_level)
         verbose("Verbosity: %i; Boto log level: %s",
-            is_verbose, logging.getLevelName(log_level))
-        
+                is_verbose, logging.getLevelName(log_level))
+
     return verbose
 
 
@@ -183,7 +190,7 @@ def s3time_as_datetime(t_string):
         '%Y-%m-%dT%H:%M:%S.%fZ'
                 OR
         '%a, %d %b %Y %H:%M:%S %Z'
-    
+
     Given one of these two time formats, this function attempts to convert
     the string representation of the datetime, into a standard python datetime
     object.
@@ -193,16 +200,15 @@ def s3time_as_datetime(t_string):
     stamp_s3 = None
     try:
         stamp_s3 = datetime.datetime.strptime(t_string,
-            '%Y-%m-%dT%H:%M:%S.%fZ')
+                                              '%Y-%m-%dT%H:%M:%S.%fZ')
     except ValueError:
         try:
             stamp_s3 = datetime.datetime.strptime(t_string,
-                '%a, %d %b %Y %H:%M:%S %Z')
+                                                  '%a, %d %b %Y %H:%M:%S %Z')
         except ValueError:
             raise Exception(
-                'Unable to find a matching time format for "%s"'%(t_string))
+                'Unable to find a matching time format for "%s"' % (t_string))
     return stamp_s3
 
 
 # EOF
-
