@@ -73,19 +73,18 @@ class S3YumContext(object):
         """
         Basic init.
         """
-        self.action = None
-        self.args = None
-        self.opts = None
-        self.parser = None
-        self.rpm_args = None
-        self.s3_bucket = None
-        self.s3_conn = None
-        self.s3_repodata_items = None
-        self.s3_repodata_path = None
-        self.s3_rpm_items = None
-        self.workingdir = None
-        self.workingdir_arg = None
-        self.workingdir_repodata = None
+        self.action = None # Action being performed (e.g. LIST, GET, CREATE)
+        self.args = None # All non-option command line arguments
+        self.opts = None # Command line options
+        self.parser = None # The parser object used to get options
+        self.rpm_args = None # Filename command line arguments
+        self.s3_bucket = None # boto.s3.Bucket object used for session
+        self.s3_conn = None # boto.s3.Connection object used for AWS
+        self.s3_repodata_items = None # List of s3 repodata items
+        self.s3_repodata_path = None # The path within the bucket to repodata
+        self.s3_rpm_items = None # List of s3 rpm items
+        self.working_dir = None # The local working directory
+        self.working_dir_repodata = None # Path to local repodata folder
         return
 
 
