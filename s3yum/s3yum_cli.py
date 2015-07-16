@@ -348,7 +348,7 @@ def list_rpms(context):
 #----------------------------------------------
 #                 S3: Download
 #----------------------------------------------
-def should_download(context, item, filepath, force_download):
+def should_download(item, filepath, force_download):
     """
     Return true if item should be downloaded to filepath, false otherwise.
 
@@ -384,7 +384,7 @@ def download_items(context, items, dest_dir, force_download=False):
             filename = os.path.basename(item.name)
             filepath = os.path.join(dest_dir, filename)
 
-            if should_download(context, item, filepath, force_download):
+            if should_download(item, filepath, force_download):
                 f = open(filepath, 'w')
 
                 item.get_file(f, cb=get_progress_fn(
@@ -434,7 +434,7 @@ def get_repo(context, dest_dir):
 #----------------------------------------------
 #                 S3: Upload
 #----------------------------------------------
-def should_upload(context, filepath, item, force_upload):
+def should_upload(filepath, item, force_upload):
     """
     Return true if the file at filepath should be uploaded, false otherwise.
 
@@ -472,8 +472,7 @@ def upload_directory(context, dir_path, upload_prefix, check_items=[]):
             continue
 
         # Skip anything that doesn't need to be uploaded:
-        if not should_upload(
-                context, filepath, remote_item, context.opts.force_upload):
+        if not should_upload(filepath, remote_item, context.opts.force_upload):
             verbose(
                 'File "%s" already exists in S3 location "%s" skipping upload',
                 filename, upload_prefix)
