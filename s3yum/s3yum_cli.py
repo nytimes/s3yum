@@ -19,7 +19,7 @@
 #==============================================================================
 
 #----------------
-#    Imports:    
+#    Imports:
 #----------------
 import os
 import sys
@@ -46,13 +46,14 @@ from s3yum.util import (
     md5_matches,
     mtime_as_datetime,
     s3time_as_datetime,
-    )
+    S3YumContext
+)
 
 
 #----------------------------------------------
-#                   Globals:    
+#                   Globals:
 #----------------------------------------------
-verbose = None # <-- verbose flag used by get_print_fn
+verbose = None  # <-- verbose flag used by get_print_fn
 
 # Program metadata:
 USAGE = "usage: %prog ACTION [OPTIONS] [RPM1] [RPM2] ... [RPM2]"
@@ -105,7 +106,7 @@ FOLDER_SUFFIX = "_$folder$"
 #----------------------------------------------
 #               Utility Functions:
 #----------------------------------------------
-def parse_args(argv):
+def parse_args(context, argv):
     """
     Parse input arguments.
     """
@@ -147,7 +148,7 @@ def parse_args(argv):
     parser.add_option(
         "-w", "--working-dir",
         help='Download and create repo from this directory instead of tmpdir',
-        dest="workingdir_arg", type="string", default=None)
+        type="string", default=None)
 
     parser.add_option(
         "-r", "--remove",
@@ -166,8 +167,8 @@ def parse_args(argv):
 
     parser.add_option(
         "--dry-run",
-        help='Indicate what would happen, ' + \
-            'without actually modifying the *remote* repo',
+        help='Indicate what would happen, ' +
+        'without actually modifying the *remote* repo',
         action='store_true', default=False)
 
     parser.add_option(
@@ -187,23 +188,24 @@ def parse_args(argv):
         type='string', action='store', default=None)
 
     (opts, args) = parser.parse_args(argv)
-    opts.parser = parser
-    opts.args = args
+    context.opts = opts
+    context.args = args
+    context.parser = parser
 
     if len(args) > 1:
-        opts.action = args[1].lower()
+        context.action = args[1].lower()
     else:
-        opts.action = None
+        context.action = None
 
     opts.path = re.sub(r'^\/+', '', opts.path)
-    opts.rpm_args = args[2:]
+    context.rpm_args = args[2:]
     return opts
 
 
 #----------------------------------------------
 #             Filesystem Functions:
 #----------------------------------------------
-def init_workingdir(opts):
+def init_workingdir(context):
     """
     Make sure we have a valid working directory.
     If the user passed -w, use the input directory.
@@ -212,33 +214,37 @@ def init_workingdir(opts):
     """
     try:
         # Create temp dir:
-        if opts.workingdir_arg:
-            opts.workingdir = opts.workingdir_arg
-            opts.workingdir_repodata = os.path.join(opts.workingdir, REPODATA)
-            if not os.path.exists(opts.workingdir):
+        if context.opts.working_dir:
+            context.working_dir = context.opts.working_dir
+            context.working_dir_repodata = os.path.join(
+                context.working_dir,
+                REPODATA)
+            if not os.path.exists(context.working_dir):
                 verbose('Working directory "%s" does not exist. Creating..',
-                        opts.workingdir)
-                os.makedirs(opts.workingdir)
+                        context.working_dir)
+                os.makedirs(context.working_dir)
 
         else:
-            opts.workingdir = tempfile.mkdtemp()
-            opts.workingdir_repodata = os.path.join(opts.workingdir, REPODATA)
-    except OSError, ex:
+            context.working_dir = tempfile.mkdtemp()
+            context.working_dir_repodata = os.path.join(
+                context.working_dir,
+                REPODATA)
+    except OSError as ex:
         err_msg = 'Unable to initialize working directory: "%s": %s (%i)' % (
             ex.filename, ex.strerror, ex.errno)
         raise ServiceError(err_msg)
     return
 
 
-def copy_rpms(opts):
+def copy_rpms(context):
     """
     Copy input rpm's into the working directory.
     """
-    for rpm_path in opts.rpm_args:
+    for rpm_path in context.rpm_args:
         try:
             verbose("Copying %s to tmp...", rpm_path)
-            shutil.copy(rpm_path, opts.workingdir)
-        except IOError, ex:
+            shutil.copy(rpm_path, context.working_dir)
+        except IOError as ex:
             err_msg = 'Error copying "%s": %s (%i)' % (
                 ex.filename, ex.strerror, ex.errno)
             raise ServiceError(err_msg)
@@ -248,21 +254,21 @@ def copy_rpms(opts):
 #----------------------------------------------
 #                 S3: Connect
 #----------------------------------------------
-def connect_to_bucket(opts):
+def connect_to_bucket(context):
     """
     Connect to s3 and get the specified bucket, if it exists.
     """
     try:
         # If we're assuming a role, attempt to get temporary credentials:
-        if opts.assume_role:
+        if context.opts.assume_role:
             sts_conn = boto.sts.STSConnection()
             assumedRoleObject = sts_conn.assume_role(
-                role_arn=opts.assume_role,
-                role_session_name=opts.role_session_name,
-                external_id=opts.role_external_id)
-            if opts.region:
+                role_arn=context.opts.assume_role,
+                role_session_name=context.opts.role_session_name,
+                external_id=context.opts.role_external_id)
+            if context.opts.region:
                 conn = boto.s3.connect_to_region(
-                    region_name=opts.region,
+                    region_name=context.opts.region,
                     aws_access_key_id=assumedRoleObject.credentials.access_key,
                     aws_secret_access_key=assumedRoleObject.credentials.secret_key,
                     security_token=assumedRoleObject.credentials.session_token)
@@ -273,17 +279,18 @@ def connect_to_bucket(opts):
                     security_token=assumedRoleObject.credentials.session_token)
         # Otherwise, create an s3 connection using the default creds:
         else:
-            if opts.region:
-                conn = boto.s3.connect_to_region(region_name=opts.region)
+            if context.opts.region:
+                conn = boto.s3.connect_to_region(
+                    region_name=context.opts.region)
             else:
                 conn = boto.connect_s3()
 
-        bucket = conn.get_bucket(opts.bucket)
-        opts.s3_conn = conn
-        opts.s3_bucket = bucket
-    except boto.exception.BotoServerError, ex:
+        bucket = conn.get_bucket(context.opts.bucket)
+        context.s3_conn = conn
+        context.s3_bucket = bucket
+    except boto.exception.BotoServerError as ex:
         raise ServiceError(str(ex))
-    except boto.exception.S3ResponseError, ex:
+    except boto.exception.S3ResponseError as ex:
         raise ServiceError("S3 Error: %s" % ex.error_message)
     return
 
@@ -291,7 +298,7 @@ def connect_to_bucket(opts):
 #----------------------------------------------
 #                  S3: List
 #----------------------------------------------
-def print_lists(opts):
+def print_lists(context):
     """
     Print repo info and bail.
     """
@@ -299,49 +306,49 @@ def print_lists(opts):
         print "\t%s - %ib - %s" % (
             item.name, item.size, item.last_modified)
 
-    print "Repo info for %s:" % (s3join(opts.bucket, opts.path))
-    for metadata_item in opts.s3_repodata_items:
+    print "Repo info for %s:" % (s3join(context.opts.bucket, context.opts.path))
+    for metadata_item in context.s3_repodata_items:
         list_item(metadata_item)
 
-    for rpm_item in opts.s3_rpm_items:
+    for rpm_item in context.s3_rpm_items:
         list_item(rpm_item)
     return
 
 
-def list_metadata(opts):
+def list_metadata(context):
     """
     List the current repo metadata items in s3, storing in s3_repodata_items.
     """
-    opts.s3_repodata_path = s3join(opts.path, REPODATA)
-    key_list = opts.s3_bucket.list(prefix=opts.s3_repodata_path)
+    context.s3_repodata_path = s3join(context.opts.path, REPODATA)
+    key_list = context.s3_bucket.list(prefix=context.s3_repodata_path)
 
-    opts.s3_repodata_items = []
+    context.s3_repodata_items = []
     for item in key_list:
         if item.name.find(FOLDER_SUFFIX) != -1:
             continue
 
-        opts.s3_repodata_items.append(item)
+        context.s3_repodata_items.append(item)
 
     return
 
 
-def list_rpms(opts):
+def list_rpms(context):
     """
     List the current rpm items in s3, storing in s3_rpm_items.
     """
-    key_list = opts.s3_bucket.list(prefix=opts.path)
-    opts.s3_rpm_items = []
+    key_list = context.s3_bucket.list(prefix=context.opts.path)
+    context.s3_rpm_items = []
     for item in key_list:
         if not item.name.endswith('.rpm'):
             continue
-        opts.s3_rpm_items.append(item)
+        context.s3_rpm_items.append(item)
     return
 
 
 #----------------------------------------------
 #                 S3: Download
 #----------------------------------------------
-def should_download(opts, item, filepath, force_download):
+def should_download(context, item, filepath, force_download):
     """
     Return true if item should be downloaded to filepath, false otherwise.
 
@@ -352,16 +359,17 @@ def should_download(opts, item, filepath, force_download):
     """
     if force_download or not os.path.exists(filepath):
         return True
-    
+
     local_mtime = mtime_as_datetime(filepath)
     remote_mtime = s3time_as_datetime(item.last_modified)
     files_differ = not md5_matches(filepath, item.md5)
     return files_differ and remote_mtime >= local_mtime
 
-def download_items(opts, items, dest_dir, force_download=False):
+
+def download_items(context, items, dest_dir, force_download=False):
     """
     Download the s3 items given by 'items' into the destination directory
-    given by 'dest_dir'. If force_download is true, download *everything* in 
+    given by 'dest_dir'. If force_download is true, download *everything* in
     the list. Otherwise, skip downloads for items which are already present
     in the working directory.
     """
@@ -376,32 +384,32 @@ def download_items(opts, items, dest_dir, force_download=False):
             filename = os.path.basename(item.name)
             filepath = os.path.join(dest_dir, filename)
 
-            if should_download(opts, item, filepath, force_download):
+            if should_download(context, item, filepath, force_download):
                 f = open(filepath, 'w')
 
                 item.get_file(f, cb=get_progress_fn(
-                    opts.verbose, "Downloading %s" % item.name))
+                    context.opts.verbose, "Downloading %s" % item.name))
 
                 f.close()
 
                 # Verify the checksum of the downloaded item:
-                if not md5_matches(filepath,item.md5):
+                if not md5_matches(filepath, item.md5):
                     raise ServiceError(
-                        "\nDownload failed: md5 mismatch for %s"%(filename))
+                        "\nDownload failed: md5 mismatch for %s" % (filename))
             else:
                 verbose('File "%s" already exists in "%s" skipping download',
                         filename, dest_dir)
             no_items += 1
 
         return no_items
-    except IOError, ex:
+    except IOError as ex:
         err_msg = "Error opening %s: %s (%i)" % (
             ex.filename, ex.strerror, ex.errno)
         raise ServiceError(err_msg)
     return
 
 
-def get_repo(opts, dest_dir):
+def get_repo(context, dest_dir):
     """
     Download the entire repo to 'dest_dir' on the local disk.
     """
@@ -409,20 +417,24 @@ def get_repo(opts, dest_dir):
     if not os.path.exists(repodata_dir):
         try:
             os.makedirs(repodata_dir)
-        except OSError, ex:
+        except OSError as ex:
             err_msg = 'Unable to create "%s": %s' % (
                 repodata_dir, ex.strerror)
             raise ServiceError(err_msg)
 
-    download_items(opts, opts.s3_repodata_items, repodata_dir, True)
-    download_items(opts, opts.s3_rpm_items, dest_dir, opts.force_download)
+    download_items(context, context.s3_repodata_items, repodata_dir, True)
+    download_items(
+        context,
+        context.s3_rpm_items,
+        dest_dir,
+        context.opts.force_download)
     return
 
 
 #----------------------------------------------
 #                 S3: Upload
 #----------------------------------------------
-def should_upload(opts, filepath, item, force_upload):
+def should_upload(context, filepath, item, force_upload):
     """
     Return true if the file at filepath should be uploaded, false otherwise.
 
@@ -440,7 +452,7 @@ def should_upload(opts, filepath, item, force_upload):
     return files_differ and local_mtime >= remote_mtime
 
 
-def upload_directory(opts, dir_path, upload_prefix, check_items=[]):
+def upload_directory(context, dir_path, upload_prefix, check_items=[]):
     """
     Upload all the files in the directory 'dir_path' into the s3 bucket.
     The variable 'upload_prefix' is the path relative to the s3 bucket.
@@ -448,19 +460,20 @@ def upload_directory(opts, dir_path, upload_prefix, check_items=[]):
     If an item to be uploaded is found in check_items, it is skipped.
     """
 
-    items_by_name = dict(zip(map(lambda x:x.name, check_items), check_items))
+    items_by_name = dict(zip(map(lambda x: x.name, check_items), check_items))
 
     # Upload RPM's:
     for filename in os.listdir(dir_path):
         filepath = os.path.join(dir_path, filename)
-        remote_item = items_by_name.get(filename,None)
+        remote_item = items_by_name.get(filename, None)
 
         # Skip any non-file arguments:
         if not os.path.isfile(filepath):
             continue
 
         # Skip anything that doesn't need to be uploaded:
-        if not should_upload(opts, filepath, remote_item, opts.force_upload):
+        if not should_upload(
+                context, filepath, remote_item, context.opts.force_upload):
             verbose(
                 'File "%s" already exists in S3 location "%s" skipping upload',
                 filename, upload_prefix)
@@ -468,54 +481,58 @@ def upload_directory(opts, dir_path, upload_prefix, check_items=[]):
 
         # Perform the upload:
         dest_path = s3join(upload_prefix, filename)
-        item_key = boto.s3.key.Key(opts.s3_bucket)
+        item_key = boto.s3.key.Key(context.s3_bucket)
         item_key.key = dest_path
-        if not opts.dry_run:
+        if not context.opts.dry_run:
             item_key.set_contents_from_filename(
                 filepath, cb=get_progress_fn(
-                    opts.verbose, "Uploading: %s" % dest_path))
+                    context.opts.verbose, "Uploading: %s" % dest_path))
         else:
             verbose("Uploading: %s" % dest_path)
     return
 
 
-def upload_repodata(opts):
+def upload_repodata(context):
     """
     Upload repodata to the specified bucket.
     """
-    upload_directory(opts, opts.workingdir, opts.path, opts.s3_rpm_items)
+    upload_directory(
+        context,
+        context.working_dir,
+        context.opts.path,
+        context.s3_rpm_items)
 
     # ALWAYS delete the existing s3 metadata items and upload the new ones.
     # We NEVER use check_items here:
     # Delete old metadata:
-    for item in opts.s3_repodata_items:
+    for item in context.s3_repodata_items:
         verbose("Deleting old metadata file: %s", item.name)
-        if not opts.dry_run:
+        if not context.opts.dry_run:
             item.delete()
 
     # Delete any --remove'd RPM's:
-    for item in opts.s3_rpm_items:
-        for remove_rpm in opts.remove:
+    for item in context.s3_rpm_items:
+        for remove_rpm in context.opts.remove:
             if fnmatch.fnmatch(item.name, remove_rpm):
                 verbose("Deleting: %s", item.name)
-                if not opts.dry_run:
+                if not context.opts.dry_run:
                     item.delete()
 
     # Upload new metadata:
-    repo_dest = s3join(opts.path, REPODATA)
-    upload_directory(opts, opts.workingdir_repodata, repo_dest)
+    repo_dest = s3join(context.opts.path, REPODATA)
+    upload_directory(context, context.working_dir_repodata, repo_dest)
     return
 
 
 #----------------------------------------------
 #                S3: Delete
 #----------------------------------------------
-def confirm_delete(opts):
+def confirm_delete(context):
     """
     Make sure we really want to do this.
     """
     print "ALL of yum metadata and RPM's will be deleted from:"
-    print "%s/%s" % (opts.bucket, opts.path)
+    print "%s/%s" % (context.opts.bucket, context.opts.path)
 
     answer = None
     count = 0
@@ -532,25 +549,25 @@ def confirm_delete(opts):
     return False
 
 
-def delete_repo(opts):
+def delete_repo(context):
     """
     Delete the repo metadata and all rpm's.
     """
-    delete_ok = confirm_delete(opts)
+    delete_ok = confirm_delete(context)
     if not delete_ok:
         print "Delete aborted!"
         return False
 
     # Delete old metadata:
-    for item in opts.s3_repodata_items:
+    for item in context.s3_repodata_items:
         verbose("Deleting old metadata file: %s", item.name)
-        if not opts.dry_run:
+        if not context.opts.dry_run:
             item.delete()
 
     # Delete any --remove'd RPM's:
-    for item in opts.s3_rpm_items:
+    for item in context.s3_rpm_items:
         verbose("Deleting: %s", item.name)
-        if not opts.dry_run:
+        if not context.opts.dry_run:
             item.delete()
     return True
 
@@ -558,19 +575,20 @@ def delete_repo(opts):
 #----------------------------------------------
 #                    yum:
 #----------------------------------------------
-def create_repodata(opts):
+def create_repodata(context):
     """
     Invoke 'createrepo' to create the repodata folder to upload.
     """
-    return
     try:
         verbose("Generating yum repo metadata")
-        if os.path.exists(opts.workingdir_repodata):
-            verbose('Removing old repodata: "%s"', opts.workingdir_repodata)
-            shutil.rmtree(opts.workingdir_repodata)
+        if os.path.exists(context.working_dir_repodata):
+            verbose(
+                'Removing old repodata: "%s"',
+                context.working_dir_repodata)
+            shutil.rmtree(context.working_dir_repodata)
 
         args = [CREATEREPO]
-        args.append(opts.workingdir)
+        args.append(context.working_dir)
         cmd_line = ' '.join(args)
         verbose("Executing: %s", cmd_line)
 
@@ -580,12 +598,12 @@ def create_repodata(opts):
         else:
             subprocess.check_call(args)
 
-    except subprocess.CalledProcessError, ex:
+    except subprocess.CalledProcessError as ex:
         err_msg = "'%s' failed with status code %i: %s" % (
             CREATEREPO, ex.returncode, ex.output)
         raise ServiceError(err_msg)
 
-    except OSError, ex:
+    except OSError as ex:
         err_msg = "Unable to invoke '%s': %s" % (
             CREATEREPO, ex.strerror)
         raise ServiceError(err_msg)
@@ -596,91 +614,91 @@ def create_repodata(opts):
 #----------------------------------------------
 #                  s3yum:
 #----------------------------------------------
-def perform_action(opts):
+def perform_action(context):
     """
     Perform specific action, as indicated on command line.
     """
     # Create: mktmp, copy rpms, configure, and upload
-    if opts.action == CREATE:
-        init_workingdir(opts)
-        copy_rpms(opts)
-        create_repodata(opts)
-        upload_repodata(opts)
+    if context.action == CREATE:
+        init_workingdir(context)
+        copy_rpms(context)
+        create_repodata(context)
+        upload_repodata(context)
 
     # Update: mktmp, get into tmp, copy rpms, configure, and upload
-    elif opts.action == UPDATE:
-        init_workingdir(opts)
-        get_repo(opts, opts.workingdir)
-        copy_rpms(opts)
-        create_repodata(opts)
-        upload_repodata(opts)
+    elif context.action == UPDATE:
+        init_workingdir(context)
+        get_repo(context, context.working_dir)
+        copy_rpms(context)
+        create_repodata(context)
+        upload_repodata(context)
 
     # List: just print
-    elif opts.action == LIST:
-        print_lists(opts)
+    elif context.action == LIST:
+        print_lists(context)
 
     # Get: copy to output directory
-    elif opts.action == GET:
-        get_repo(opts, opts.output)
+    elif context.action == GET:
+        get_repo(context, context.opts.output)
 
     # Destroy the repo!
-    elif opts.action == DELETE:
-        delete_repo(opts)
+    elif context.action == DELETE:
+        delete_repo(context)
     return
 
 
-
-def main(argv = None):
+def main(argv=None):
     """
     Main logic.
     """
     if argv is None:
         argv = sys.argv
 
-    opts = None
+    context = S3YumContext()
     try:
-        opts = parse_args(argv)
+        parse_args(context, argv)
 
         global verbose
-        verbose = get_print_fn(opts.dry_run, opts.verbose)
+        verbose = get_print_fn(context.opts.dry_run, context.opts.verbose)
 
         # Validate args:
-        if not opts.action:
+        if not context.action:
             raise UserError("Please specify an action")
 
-        if opts.action not in ACTIONS:
+        if context.action not in ACTIONS:
             raise UserError("Bad action: '%s'. Action must be one of: %s" % (
-                str(opts.action), ACTIONS_DESC))
+                str(context.action), ACTIONS_DESC))
 
-        if opts.action == HELP:
+        if context.action == HELP:
             print "Valid actions:"
             for action, usage in ACTIONS_HELP.items():
                 print "\t%s: %s" % (action, usage)
             sys.exit(0)
 
-        if opts.action in (CREATE, UPDATE) and not opts.rpm_args and not opts.remove:
+        if context.action in (
+                CREATE, UPDATE) and not context.rpm_args and not context.opts.remove:
             raise UserError("Please specify at least one RPM to add/remove.")
 
-        if not opts.bucket:
+        if not context.opts.bucket:
             raise UserError("Please specify a bucket.")
 
-        if opts.action in (GET) and not opts.output:
+        if context.action in (GET) and not context.opts.output:
             raise UserError("Please specify an output directory.")
 
         # Init tmp, copy rpms, get the bucket, create repodata, upload:
-        connect_to_bucket(opts)
-        list_metadata(opts)
-        list_rpms(opts)
-        perform_action(opts)
-    except IOError, ex:
+        connect_to_bucket(context)
+        list_metadata(context)
+        list_rpms(context)
+        perform_action(context)
+    except IOError as ex:
         print("Error: Unable to read from %s: %s (%i)" % (
             ex.filename, ex.strerror, ex.errno))
 
-    except UserError, ex:
+    except UserError as ex:
         print(ex.strerror)
-        opts.parser.print_help()
+        context.parser.print_help()
 
-    except ServiceError, ex:
+    except ServiceError as ex:
         print(ex.strerror)
 
     except Exception:
@@ -691,8 +709,8 @@ def main(argv = None):
     #==============
 
     # Remove *temp* working dir, but not user-specified:
-    if getattr(opts, 'tmpdir', None) and not opts.workingdir_arg:
-        shutil.rmtree(opts.workingdir)
+    if getattr(context, 'working_dir', None) and not context.opts.working_dir:
+        shutil.rmtree(context.working_dir)
     return
 
 
