@@ -1,3 +1,6 @@
+### v1.6.1 2015/07/20:
+RPM Manifest update.
+
 ### v1.6.0 2015/07/20:
 #### Features:
  - Repeat `--verbose` options turn on and increase boto log output
