@@ -122,7 +122,8 @@ def get_s3item_md5(item):
     if item.md5 is not None:
         return item.md5
     else:
-        return item.etag
+        # Remove ETAG with any quotes removed:
+        return item.etag.replace('"','').replace("'","")
 
 def md5_matches(filepath, checksum_md5):
     """
