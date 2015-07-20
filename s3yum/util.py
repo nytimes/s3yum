@@ -125,6 +125,7 @@ def get_s3item_md5(item):
         # Remove ETAG with any quotes removed:
         return item.etag.replace('"','').replace("'","")
 
+
 def md5_matches(filepath, checksum_md5):
     """
     Verify that the md5 checksum of the file located at filepath matches

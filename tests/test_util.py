@@ -18,6 +18,7 @@ from mock import (
 
 from s3yum.util import (
     s3join,
+    get_s3item_md5,
     md5_matches,
     s3time_as_datetime,
     )
@@ -38,6 +39,23 @@ class TestS3YumUtil(unittest.TestCase):
         # Verify that trailing / is preserved:
         self.assertEqual(s3join('a','b','c/'),'a/b/c/')
         return
+
+    def test_s3md5(self):
+        """
+        Verify that the s3 item md5 is always available
+        """
+        test_checksum = 'FakeMD5'
+        mock_item1 = MagicMock()
+        mock_item1.md5 = test_checksum
+        mock_item2 = MagicMock()
+        mock_item2.md5 = None
+        mock_item2.etag = test_checksum
+        mock_item3 = MagicMock()
+        mock_item3.md5 = None
+        mock_item3.etag = '"{}"'.format(test_checksum)
+        self.assertEqual(get_s3item_md5(mock_item1),test_checksum)
+        self.assertEqual(get_s3item_md5(mock_item2),test_checksum)
+        self.assertEqual(get_s3item_md5(mock_item3),test_checksum)
 
     def test_md5_matching(self):
         """
