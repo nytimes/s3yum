@@ -5,7 +5,7 @@ import sys
 try:
     from setuptools import setup
 except:
-    print >>sys.stderr, "app_buddy requires setuptools to build!"
+    print >>sys.stderr, "s3yum requires setuptools to build!"
     sys.exit(1)
 
 # Get commit hash, if possible:
