@@ -4,7 +4,7 @@
 
 """@package s3yum
 """
-__author__ =  'NYTD Fabrik Team'
+__author__ =  'NYTD Edge Team'
 
 import pkg_resources
 try:
