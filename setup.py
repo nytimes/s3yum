@@ -5,7 +5,7 @@ import sys
 try:
     from setuptools import setup
 except:
-    print >>sys.stderr, "app_buddy requires setuptools to build!"
+    print >>sys.stderr, "s3yum requires setuptools to build!"
     sys.exit(1)
 
 # Get commit hash, if possible:
@@ -20,12 +20,12 @@ DESCRIPTION = "Command line utility for managing yum repos in Amazon S3"
 setup(
     # Metadata:
     name="s3yum",
-    version="1.6.1",
+    version="1.6.2",
     url="https://github.com/NYTimes/s3yum",
-    author="Andrew Canaday",
-    author_email="andrew.canaday@nytimes.com",
-    maintainer="Andrew Canaday",
-    maintainer_email="andrew.canaday@nytimes.com",
+    author="New York Times Digital",
+    author_email="code@nytimes.com",
+    maintainer="New York Times Digital",
+    maintainer_email="code@nytimes.com",
     description=DESCRIPTION,
     long_description=DESCRIPTION + commit_info,
     license="Apache",
