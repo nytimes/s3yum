@@ -1,3 +1,6 @@
+### v1.6.2 2016/06/10:
+Update package metadata.
+
 ### v1.6.1 2015/07/20:
 RPM Manifest update.
 
