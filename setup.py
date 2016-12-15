@@ -29,6 +29,7 @@ setup(
     description=DESCRIPTION,
     long_description=DESCRIPTION + commit_info,
     license="Apache",
+    install_requires=['boto'],
     classifiers=[
         "Environment :: Console",
         "Operating System :: MacOS :: MacOS X",
