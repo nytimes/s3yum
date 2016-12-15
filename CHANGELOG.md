@@ -1,3 +1,6 @@
+### v1.6.3 2016/12/15:
+Add boto as an install requirement (thanks, @mmckinst)
+
 ### v1.6.2 2016/06/10:
 Update package metadata.
 
