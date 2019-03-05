@@ -149,7 +149,7 @@ def parse_args(context, argv):
 
     parser.add_option(
         "-p", "--path",
-        help='Root path of the repo (RPM destination) relative to bucket',
+        help='Root path of the repo (RPM destination) relative to '',
         type='string', default='dev')
 
     parser.add_option(
@@ -319,7 +319,7 @@ def connect_to_bucket(context):
             else:
                 conn = boto.connect_s3()
 
-        bucket = conn.get_bucket(context.opts.bucket)
+        bucket = boto.s3.bucket.Bucket(conn, context.opts.bucket)
         context.s3_conn = conn
         context.s3_bucket = bucket
     except boto.exception.BotoServerError as ex:
