@@ -62,3 +62,6 @@ target/
 
 # Build stuff
 MANIFEST
+
+# Virtual env
+venv

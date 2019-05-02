@@ -1,9 +1,17 @@
 # s3yum
 
-## Introduction
 A simple command line utility for maintaining s3-based yum repos in concert
 with [yum-s3-iam](https://github.com/seporaitis/yum-s3-iam).
 
+#### Contents
+- [Overview](#overview)
+  - [Upload/Download Semantic](#upload/download-semantic)
+- [Build and Installation](#build-and-installation)
+- [Development](#development)
+- [Usage](#usage)
+  - [Environment Variables](#environment-variables)
+  - [Examples](#examples)
+- [License](#license)
 ## Overview
 
  * A developer with AWS credentials places a set of RPMs in a local directory.
@@ -17,7 +25,7 @@ with [yum-s3-iam](https://github.com/seporaitis/yum-s3-iam).
  * A config file is deployed to /etc/yum/repos.d on the instance which directs
    yum to the S3 bucket.
 
-## Upload/Download Semantics
+### Upload/Download Semantics
 Unless `--force-upload` or `--force-download` is speicifed, s3yum uses the
 following criteria to decide whether or not to upload or download a file:
  - If the source file does not exist at the destination: transfer
@@ -26,6 +34,45 @@ following criteria to decide whether or not to upload or download a file:
    is greater than the mtime of the destination
  - If the source file exists at the destination and the checksums match:
    don't transfer the file.
+
+
+## Build and Installation
+```Shell
+# Install dependencies:
+pip2.7 install -r ./requirements.txt
+python2.7 ./setup.py install
+
+# For more info (packaging, etc):
+python2.7 ./setup.py --help-commands
+```
+
+## Development
+:warning: As of version [1.6.4](https://github.com/nytimes/s3yum/releases/tag/v1.6.4),
+s3yum is still developed with _python2.7_ - any future major releases will
+be ported to python3.
+
+```Shell
+# Install additional development dependencies:
+pip2.7 install -r dev-requirements.txt
+
+# If you don't have virtualenv (python2.7):
+pip2.7 install virtualenv
+
+# If you already have virtualenv for a different python version:
+virtualenv -p $( which python2.7 ) venv
+
+# Source your virtual environment:
+source ./venv/bin/activate
+
+# Run tests:
+nosetests -v
+
+# If additional dependencies are added:
+pip2.7 freeze > ./requirements.txt
+
+# Deactivate when done:
+deactivate
+```
 
 ## Usage
 The general format of an s3yum command is
@@ -48,6 +95,7 @@ For detailed usage, try the following:
  * `AWS_ACCESS_KEY_ID` - aws access key
  * `AWS_SECRET_ACCESS_KEY` - aws secrety key
 
+### Examples
 #### Example 1: Create a new repo from a set of RPM's
 ```Shell
 s3yum CREATE -v \
@@ -86,7 +134,7 @@ s3yum DELETE -v \
 ```
  
 ## License
-Copyright 2013,2014,2015 New York Times Company
+Copyright 2013-2019 New York Times Company
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.

@@ -4,7 +4,7 @@
 #
 # s3yum: Repo creation/maintenance tool for S3-based yum repos
 #
-# Copyright 2013,2014 The New York Times Company
+# Copyright 2013-2019 The New York Times Company
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
