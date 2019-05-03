@@ -94,7 +94,7 @@ There are three main ways you can autenticate using s3yum:
  * By [assuming a role](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-role.html) using `--asume-role`
 
 ### Upload/Download Semantics
-Unless `--force-upload` or `--force-download` is speicifed, s3yum uses the
+Unless `--force-upload` or `--force-download` is specifed, s3yum uses the
 following criteria to decide whether or not to upload or download a file:
  - If the source file does not exist at the destination: transfer
  - If the source file does exist at the destination, and the checksums of

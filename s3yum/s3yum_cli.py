@@ -45,6 +45,7 @@ import re
 import traceback
 import subprocess
 import fnmatch
+import pkg_resources
 
 from s3yum.s3yum_types import (
     UserError,
@@ -70,7 +71,11 @@ verbose = None  # <-- verbose flag used by get_print_fn
 # Program metadata:
 USAGE = "usage: %prog ACTION [OPTIONS] [RPM1] [RPM2] ... [RPM2]"
 DESCRIPTION = "Create/maintain s3-based yum repos"
-VERSION = "1.6.4"
+try:
+    VERSION = pkg_resources.get_distribution('s3yum').version
+except pkg_resources.DistributionNotFound:
+    VERSION = '{0} local source'.format(__name__)
+
 
 # s3yum actions:
 HELP = 'help'
