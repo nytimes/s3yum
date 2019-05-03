@@ -5,13 +5,15 @@ with [yum-s3-iam](https://github.com/seporaitis/yum-s3-iam).
 
 #### Contents
 - [Overview](#overview)
-  - [Upload/Download Semantic](#upload/download-semantic)
 - [Build and Installation](#build-and-installation)
 - [Development](#development)
 - [Usage](#usage)
   - [Environment Variables](#environment-variables)
+  - [Authentication](#authentication)
+  - [Upload/Download Semantic](#upload/download-semantic)
   - [Examples](#examples)
 - [License](#license)
+
 ## Overview
 
  * A developer with AWS credentials places a set of RPMs in a local directory.
@@ -24,16 +26,6 @@ with [yum-s3-iam](https://github.com/seporaitis/yum-s3-iam).
    for bucket access.
  * A config file is deployed to /etc/yum/repos.d on the instance which directs
    yum to the S3 bucket.
-
-### Upload/Download Semantics
-Unless `--force-upload` or `--force-download` is speicifed, s3yum uses the
-following criteria to decide whether or not to upload or download a file:
- - If the source file does not exist at the destination: transfer
- - If the source file does exist at the destination, and the checksums of
-   source and destination are different: transfer if the mtime of the source
-   is greater than the mtime of the destination
- - If the source file exists at the destination and the checksums match:
-   don't transfer the file.
 
 
 ## Build and Installation
@@ -89,11 +81,27 @@ For detailed usage, try the following:
  * s3yum --help - display general command line usage
  * s3yum help - display available commands
 
-### Environment Variables:
+### Environment Variables
  * `CREATEREPO` - path to 'createrepo' executable
  * `AWS_CREDENTIAL_FILE` - path to credential file for AWS auth
  * `AWS_ACCESS_KEY_ID` - aws access key
  * `AWS_SECRET_ACCESS_KEY` - aws secrety key
+
+### Authentication
+There are three main ways you can autenticate using s3yum:
+ * Using environment variables, as described above
+ * Using a [boto config](http://boto.cloudhackers.com/en/latest/boto_config_tut.html)
+ * By [assuming a role](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-role.html) using `--asume-role`
+
+### Upload/Download Semantics
+Unless `--force-upload` or `--force-download` is speicifed, s3yum uses the
+following criteria to decide whether or not to upload or download a file:
+ - If the source file does not exist at the destination: transfer
+ - If the source file does exist at the destination, and the checksums of
+   source and destination are different: transfer if the mtime of the source
+   is greater than the mtime of the destination
+ - If the source file exists at the destination and the checksums match:
+   don't transfer the file.
 
 ### Examples
 #### Example 1: Create a new repo from a set of RPM's
