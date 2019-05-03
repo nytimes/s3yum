@@ -20,7 +20,7 @@ DESCRIPTION = "Command line utility for managing yum repos in Amazon S3"
 setup(
     # Metadata:
     name="s3yum",
-    version="1.6.3",
+    version="1.6.4",
     url="https://github.com/NYTimes/s3yum",
     author="New York Times Digital",
     author_email="code@nytimes.com",

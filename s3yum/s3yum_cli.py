@@ -70,7 +70,7 @@ verbose = None  # <-- verbose flag used by get_print_fn
 # Program metadata:
 USAGE = "usage: %prog ACTION [OPTIONS] [RPM1] [RPM2] ... [RPM2]"
 DESCRIPTION = "Create/maintain s3-based yum repos"
-VERSION = "1.5.0"
+VERSION = "1.6.4"
 
 # s3yum actions:
 HELP = 'help'
